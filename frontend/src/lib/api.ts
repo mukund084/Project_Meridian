@@ -22,6 +22,7 @@ export interface Bid {
   published_date: string | null;
   description: string | null;
   categories: string[] | null;
+  purchasing_representive: { name: string; contact_email: string } | null;
 }
 
 export interface Meeting {
@@ -71,14 +72,47 @@ export interface PDFDoc {
   created_at: string;
 }
 
+export interface Account {
+  city: string;
+  total_bids: number;
+  open_bids: number;
+  total_signals: number;
+  avg_score: number;
+  total_meetings: number;
+  total_docs: number;
+  signals_extracted: number;
+}
+
+export interface AccountDetail {
+  city: string;
+  summary: {
+    total_bids: number;
+    open_bids: number;
+    total_signals: number;
+    avg_score: number;
+    total_meetings: number;
+    total_docs: number;
+    contacts_found: number;
+  };
+  bids: Bid[];
+  signals: Signal[];
+  meetings: Meeting[];
+  documents: PDFDoc[];
+  contacts: { name: string; contact_email: string }[];
+}
+
+export interface SearchResult {
+  type: "bid" | "signal" | "meeting";
+  title: string;
+  city: string;
+  url: string;
+  meta: string;
+  score?: number;
+}
+
 // ── Endpoints ──
 
-export function getBids(params?: {
-  city?: string;
-  status?: string;
-  limit?: number;
-  offset?: number;
-}) {
+export function getBids(params?: { city?: string; status?: string; limit?: number; offset?: number }) {
   const q = new URLSearchParams();
   if (params?.city) q.set("city", params.city);
   if (params?.status) q.set("status", params.status);
@@ -91,12 +125,7 @@ export function getBid(bidNumber: string) {
   return fetcher<Bid>(`/bids/${encodeURIComponent(bidNumber)}`);
 }
 
-export function getMeetings(params?: {
-  city?: string;
-  document_type?: string;
-  limit?: number;
-  offset?: number;
-}) {
+export function getMeetings(params?: { city?: string; document_type?: string; limit?: number; offset?: number }) {
   const q = new URLSearchParams();
   if (params?.city) q.set("city", params.city);
   if (params?.document_type) q.set("document_type", params.document_type);
@@ -105,14 +134,7 @@ export function getMeetings(params?: {
   return fetcher<Meeting[]>(`/meetings?${q}`);
 }
 
-export function getSignals(params?: {
-  city?: string;
-  category?: string;
-  min_confidence?: number;
-  min_score?: number;
-  limit?: number;
-  offset?: number;
-}) {
+export function getSignals(params?: { city?: string; category?: string; min_confidence?: number; min_score?: number; limit?: number; offset?: number }) {
   const q = new URLSearchParams();
   if (params?.city) q.set("city", params.city);
   if (params?.category) q.set("category", params.category);
@@ -136,16 +158,31 @@ export function getCities() {
   return fetcher<string[]>("/cities");
 }
 
-export function getPDFDocuments(params?: {
-  city?: string;
-  status?: string;
-  limit?: number;
-  offset?: number;
-}) {
+export function getPDFDocuments(params?: { city?: string; status?: string; limit?: number; offset?: number }) {
   const q = new URLSearchParams();
   if (params?.city) q.set("city", params.city);
   if (params?.status) q.set("status", params.status);
   if (params?.limit) q.set("limit", String(params.limit));
   if (params?.offset) q.set("offset", String(params.offset));
   return fetcher<PDFDoc[]>(`/pdf-documents?${q}`);
+}
+
+export function getAccounts() {
+  return fetcher<Account[]>("/accounts");
+}
+
+export function getAccount(city: string) {
+  return fetcher<AccountDetail>(`/accounts/${encodeURIComponent(city)}`);
+}
+
+export function globalSearch(query: string) {
+  return fetcher<SearchResult[]>(`/search?q=${encodeURIComponent(query)}`);
+}
+
+export function getExpiringContracts(params?: { days?: number; city?: string; limit?: number }) {
+  const q = new URLSearchParams();
+  if (params?.days) q.set("days", String(params.days));
+  if (params?.city) q.set("city", params.city);
+  if (params?.limit) q.set("limit", String(params.limit));
+  return fetcher<Bid[]>(`/contracts/expiring?${q}`);
 }

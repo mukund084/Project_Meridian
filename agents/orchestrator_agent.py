@@ -43,7 +43,7 @@ def _run_async(coro):
 #     "Aurora", "King", "Caledon", "Georgina", "East Gwillimbury",
 # ]
 
-GTA_MUNICIPALITIES = ["Brampton", "Mississauga", "Caledon"]
+GTA_MUNICIPALITIES = ["Mississauga", "Vaughan", "Markham"]
 
 
 # --- Crawler tools ---

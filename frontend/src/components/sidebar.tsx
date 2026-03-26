@@ -8,6 +8,8 @@ const NAV_ITEMS = [
   { href: "/signals", label: "Signals Explorer", icon: SignalsIcon },
   { href: "/bids", label: "Bids Explorer", icon: BidsIcon },
   { href: "/meetings", label: "Meeting\nIntelligence", icon: MeetingsIcon },
+  { href: "/accounts", label: "Accounts", icon: AccountsIcon },
+  { href: "/contracts", label: "Contract Tracker", icon: ContractsIcon },
   { href: "/documents", label: "Documents", icon: DocsIcon },
   { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
@@ -21,14 +23,14 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-[250px] h-full bg-white flex flex-col shrink-0 border-r border-surface-low">
+    <aside className="w-[250px] h-full bg-white flex flex-col shrink-0">
       {/* Brand */}
       <div className="px-6 pt-6 pb-8">
-        <h1 className="text-[1.1rem] font-extrabold tracking-tight text-slate-deep">
-          NationGraph
+        <h1 className="text-[1.15rem] font-extrabold tracking-tight text-primary">
+          NorthSignal
         </h1>
-        <p className="text-[0.6rem] uppercase tracking-[0.25em] text-primary-container font-semibold mt-0.5">
-          Sovereign Intelligence
+        <p className="text-[0.58rem] uppercase tracking-[0.25em] text-primary-container font-semibold mt-0.5">
+          Canadian Procurement Intelligence
         </p>
       </div>
 
@@ -46,8 +48,8 @@ export function Sidebar() {
               className={`
                 flex items-center gap-3 px-3 py-2.5 text-[0.82rem] font-medium transition-colors
                 ${active
-                  ? "bg-surface-low text-slate-deep font-semibold"
-                  : "text-outline hover:text-slate-deep hover:bg-surface-low/50"
+                  ? "bg-primary-fixed/30 text-primary font-semibold"
+                  : "text-on-surface-variant hover:text-primary hover:bg-surface-low"
                 }
               `}
             >
@@ -58,13 +60,13 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom Links */}
+      {/* Bottom */}
       <div className="px-4 pb-6 space-y-0.5">
         {BOTTOM_ITEMS.map((item) => (
           <Link
             key={item.label}
             href={item.href}
-            className="flex items-center gap-3 px-3 py-2.5 text-[0.82rem] text-outline hover:text-slate-deep transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 text-[0.82rem] text-on-surface-variant hover:text-primary transition-colors"
           >
             <item.icon active={false} />
             {item.label}
@@ -75,87 +77,107 @@ export function Sidebar() {
   );
 }
 
-// ── Icons ──
+// ── Icons (green theme) ──
 
 function DashboardIcon({ active }: { active: boolean }) {
-  const color = active ? "#2b3137" : "#74777f";
+  const c = active ? "#00331b" : "#74796f";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <rect x="2" y="2" width="7" height="7" stroke={color} strokeWidth="1.5" />
-      <rect x="11" y="2" width="7" height="7" stroke={color} strokeWidth="1.5" />
-      <rect x="2" y="11" width="7" height="7" stroke={color} strokeWidth="1.5" />
-      <rect x="11" y="11" width="7" height="7" stroke={color} strokeWidth="1.5" />
+      <rect x="2" y="2" width="7" height="7" rx="1" stroke={c} strokeWidth="1.5" />
+      <rect x="11" y="2" width="7" height="7" rx="1" stroke={c} strokeWidth="1.5" />
+      <rect x="2" y="11" width="7" height="7" rx="1" stroke={c} strokeWidth="1.5" />
+      <rect x="11" y="11" width="7" height="7" rx="1" stroke={c} strokeWidth="1.5" />
     </svg>
   );
 }
 
 function SignalsIcon({ active }: { active: boolean }) {
-  const color = active ? "#2b3137" : "#74777f";
+  const c = active ? "#00331b" : "#74796f";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <rect x="2" y="4" width="16" height="12" stroke={color} strokeWidth="1.5" />
-      <path d="M6 9h2M9 7h2v4H9zM12 8h2" stroke={color} strokeWidth="1.5" />
+      <path d="M10 2v16M6 6v10M2 9v4M14 4v12M18 7v6" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
 
 function BidsIcon({ active }: { active: boolean }) {
-  const color = active ? "#2b3137" : "#74777f";
+  const c = active ? "#00331b" : "#74796f";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M5 2c-.5 0-1 .2-1.4.6C3.2 3 3 3.5 3 4v14l4-2 3 2 3-2 4 2V4c0-.5-.2-1-.6-1.4C16 2.2 15.5 2 15 2H5z" stroke={color} strokeWidth="1.5" />
-      <path d="M7 7h6M7 10h4" stroke={color} strokeWidth="1.5" />
+      <path d="M4 2h12v16l-3-2-3 2-3-2-3 2V2z" stroke={c} strokeWidth="1.5" />
+      <path d="M7 7h6M7 10h4" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
 
 function MeetingsIcon({ active }: { active: boolean }) {
-  const color = active ? "#2b3137" : "#74777f";
+  const c = active ? "#00331b" : "#74796f";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="7" cy="7" r="3" stroke={color} strokeWidth="1.5" />
-      <circle cx="14" cy="9" r="2.5" stroke={color} strokeWidth="1.5" />
-      <path d="M1 17c0-3 2.5-5 6-5s6 2 6 5M12 17c0-2 1.5-3.5 4-3.5S20 15 20 17" stroke={color} strokeWidth="1.5" />
+      <circle cx="7" cy="7" r="3" stroke={c} strokeWidth="1.5" />
+      <circle cx="14" cy="9" r="2.5" stroke={c} strokeWidth="1.5" />
+      <path d="M1 17c0-3 2.5-5 6-5s6 2 6 5M12 17c0-2 1.5-3.5 4-3.5S20 15 20 17" stroke={c} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function AccountsIcon({ active }: { active: boolean }) {
+  const c = active ? "#00331b" : "#74796f";
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <rect x="2" y="4" width="16" height="12" rx="1" stroke={c} strokeWidth="1.5" />
+      <path d="M2 8h16" stroke={c} strokeWidth="1.5" />
+      <path d="M7 4V2M13 4V2" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ContractsIcon({ active }: { active: boolean }) {
+  const c = active ? "#00331b" : "#74796f";
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="7" stroke={c} strokeWidth="1.5" />
+      <path d="M10 6v4l3 2" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function DocsIcon({ active }: { active: boolean }) {
-  const color = active ? "#2b3137" : "#74777f";
+  const c = active ? "#00331b" : "#74796f";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M5 2h7l5 5v11H5V2z" stroke={color} strokeWidth="1.5" />
-      <path d="M12 2v5h5" stroke={color} strokeWidth="1.5" />
+      <path d="M5 2h7l5 5v11H5V2z" stroke={c} strokeWidth="1.5" />
+      <path d="M12 2v5h5" stroke={c} strokeWidth="1.5" />
     </svg>
   );
 }
 
 function SettingsIcon({ active }: { active: boolean }) {
-  const color = active ? "#2b3137" : "#74777f";
+  const c = active ? "#00331b" : "#74796f";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="3" stroke={color} strokeWidth="1.5" />
-      <path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.5 3.5l1.4 1.4M15.1 15.1l1.4 1.4M16.5 3.5l-1.4 1.4M4.9 15.1l-1.4 1.4" stroke={color} strokeWidth="1.5" />
+      <circle cx="10" cy="10" r="3" stroke={c} strokeWidth="1.5" />
+      <path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.5 3.5l1.4 1.4M15.1 15.1l1.4 1.4M16.5 3.5l-1.4 1.4M4.9 15.1l-1.4 1.4" stroke={c} strokeWidth="1.5" />
     </svg>
   );
 }
 
 function HelpIcon({ active }: { active: boolean }) {
-  const color = active ? "#2b3137" : "#74777f";
+  const c = active ? "#00331b" : "#74796f";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="8" stroke={color} strokeWidth="1.5" />
-      <path d="M7.5 7.5a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3.5M10 15.5v.01" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="10" cy="10" r="8" stroke={c} strokeWidth="1.5" />
+      <path d="M7.5 7.5a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3.5M10 15.5v.01" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
 
 function LogOutIcon({ active }: { active: boolean }) {
-  const color = active ? "#2b3137" : "#74777f";
+  const c = active ? "#00331b" : "#74796f";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M7 2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7" stroke={color} strokeWidth="1.5" />
-      <path d="M11 10H2M5 7l-3 3 3 3" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7" stroke={c} strokeWidth="1.5" />
+      <path d="M11 10H2M5 7l-3 3 3 3" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

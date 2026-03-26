@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "NationGraph \u2014 Sovereign Intelligence",
-  description: "Municipal public-sector data intelligence \u2014 bids, tenders, meetings, and signals",
+  title: "Meridian \u2014 NorthSignal",
+  description: "Canadian municipal procurement intelligence platform",
 };
 
 export default function RootLayout({
