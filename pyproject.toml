@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "crawling-agent"
+version = "0.1.0"
+description = "Municipal public-sector data crawler — bids, tenders, meeting minutes"
+requires-python = ">=3.11"
+dependencies = [
+    "crawlee[playwright]",
+    "playwright",
+    "pydantic>=2.0",
+    "supabase",
+    "python-dotenv",
+    "deepagents>=0.4.12",
+    "pymupdf",
+    "xai-sdk",
+    "nest-asyncio",
+    "httpx",
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.hatch.build.targets.wheel]
+packages = ["crawlers", "models"]
