@@ -112,10 +112,11 @@ export interface SearchResult {
 
 // ── Endpoints ──
 
-export function getBids(params?: { city?: string; status?: string; limit?: number; offset?: number }) {
+export function getBids(params?: { city?: string; status?: string; year?: number; limit?: number; offset?: number }) {
   const q = new URLSearchParams();
   if (params?.city) q.set("city", params.city);
   if (params?.status) q.set("status", params.status);
+  if (params?.year) q.set("year", String(params.year));
   if (params?.limit) q.set("limit", String(params.limit));
   if (params?.offset) q.set("offset", String(params.offset));
   return fetcher<Bid[]>(`/bids?${q}`);
@@ -125,19 +126,21 @@ export function getBid(bidNumber: string) {
   return fetcher<Bid>(`/bids/${encodeURIComponent(bidNumber)}`);
 }
 
-export function getMeetings(params?: { city?: string; document_type?: string; limit?: number; offset?: number }) {
+export function getMeetings(params?: { city?: string; document_type?: string; year?: number; limit?: number; offset?: number }) {
   const q = new URLSearchParams();
   if (params?.city) q.set("city", params.city);
   if (params?.document_type) q.set("document_type", params.document_type);
+  if (params?.year) q.set("year", String(params.year));
   if (params?.limit) q.set("limit", String(params.limit));
   if (params?.offset) q.set("offset", String(params.offset));
   return fetcher<Meeting[]>(`/meetings?${q}`);
 }
 
-export function getSignals(params?: { city?: string; category?: string; min_confidence?: number; min_score?: number; limit?: number; offset?: number }) {
+export function getSignals(params?: { city?: string; category?: string; year?: number; min_confidence?: number; min_score?: number; limit?: number; offset?: number }) {
   const q = new URLSearchParams();
   if (params?.city) q.set("city", params.city);
   if (params?.category) q.set("category", params.category);
+  if (params?.year) q.set("year", String(params.year));
   if (params?.min_confidence) q.set("min_confidence", String(params.min_confidence));
   if (params?.min_score) q.set("min_score", String(params.min_score));
   if (params?.limit) q.set("limit", String(params.limit));
@@ -145,17 +148,36 @@ export function getSignals(params?: { city?: string; category?: string; min_conf
   return fetcher<Signal[]>(`/signals?${q}`);
 }
 
-export function getSignalStats(city?: string) {
-  const q = city ? `?city=${encodeURIComponent(city)}` : "";
-  return fetcher<SignalStat[]>(`/signals/stats${q}`);
+export function getSignalStats(params?: { city?: string; year?: number }) {
+  const q = new URLSearchParams();
+  if (params?.city) q.set("city", params.city);
+  if (params?.year) q.set("year", String(params.year));
+  return fetcher<SignalStat[]>(`/signals/stats?${q}`);
 }
 
 export function getSignalCategories() {
   return fetcher<CategoryOption[]>("/signals/categories");
 }
 
-export function getCities() {
-  return fetcher<string[]>("/cities");
+export interface PipelineStage {
+  stage: string;
+  label: string;
+  count: number;
+  avg_score: number;
+  avg_confidence: number;
+}
+
+export function getSignalPipeline(params?: { city?: string; year?: number }) {
+  const q = new URLSearchParams();
+  if (params?.city) q.set("city", params.city);
+  if (params?.year) q.set("year", String(params.year));
+  return fetcher<PipelineStage[]>(`/signals/pipeline?${q}`);
+}
+
+export function getCities(params?: { year?: number }) {
+  const q = new URLSearchParams();
+  if (params?.year) q.set("year", String(params.year));
+  return fetcher<string[]>(`/cities?${q}`);
 }
 
 export function getPDFDocuments(params?: { city?: string; status?: string; limit?: number; offset?: number }) {
@@ -167,8 +189,10 @@ export function getPDFDocuments(params?: { city?: string; status?: string; limit
   return fetcher<PDFDoc[]>(`/pdf-documents?${q}`);
 }
 
-export function getAccounts() {
-  return fetcher<Account[]>("/accounts");
+export function getAccounts(params?: { year?: number }) {
+  const q = new URLSearchParams();
+  if (params?.year) q.set("year", String(params.year));
+  return fetcher<Account[]>(`/accounts?${q}`);
 }
 
 export function getAccount(city: string) {

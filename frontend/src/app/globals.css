@@ -1,50 +1,55 @@
 @import "tailwindcss";
 
-/* ── The Intelligence Layer — Design Tokens ── */
+/* ── The Tactical Ledger — Design Tokens ── */
 
 @theme inline {
-  /* Primary — Deep Forest Green */
-  --color-primary: #00331b;
-  --color-primary-container: #1b4a30;
-  --color-primary-fixed: #b2f1c9;
-  --color-primary-fixed-dim: #6ddc96;
+  /* Primary — Sovereign Orange */
+  --color-primary: #a04100;
+  --color-primary-container: #ff6b00;
+  --color-primary-fixed: #ffdbcc;
+  --color-primary-fixed-dim: #ff8c42;
   --color-on-primary: #ffffff;
-  --color-on-primary-fixed: #00210e;
+  --color-on-primary-fixed: #351000;
 
-  /* Secondary — Teal Authority */
-  --color-secondary: #1a5c3a;
-  --color-secondary-container: #d4ead9;
-  --color-secondary-fixed: #c8e6c9;
-  --color-on-secondary-fixed: #0d2818;
+  /* Secondary — Deep Charcoal */
+  --color-secondary: #4a4a42;
+  --color-secondary-container: #e8e5de;
+  --color-secondary-fixed: #d4d0c8;
+  --color-on-secondary-fixed: #1c1c19;
 
-  /* Surfaces — Fine Paper Stack */
-  --color-surface: #f8f9ff;
-  --color-surface-low: #eff4ff;
+  /* Surfaces — Physical Paper Stack */
+  --color-surface: #fcf9f4;
+  --color-surface-low: #f5f1ea;
   --color-surface-lowest: #ffffff;
-  --color-surface-high: #e2e8f0;
-  --color-surface-highest: #d3e4fe;
-  --color-surface-variant: #dfe4dd;
+  --color-surface-high: #ebe7df;
+  --color-surface-highest: #ddd9d1;
+  --color-surface-variant: #e8e5de;
 
   /* Text */
-  --color-on-surface: #0b1c30;
-  --color-on-surface-variant: #414942;
+  --color-on-surface: #1c1c19;
+  --color-on-surface-variant: #5a5a52;
 
   /* Outline */
-  --color-outline: #74796f;
-  --color-outline-variant: #c1c9c0;
+  --color-outline: #8a8a80;
+  --color-outline-variant: #c8c5bc;
 
   /* Shadows */
-  --color-shadow: rgba(11, 28, 48, 0.06);
+  --color-shadow: rgba(28, 28, 25, 0.06);
 
   /* Font */
   --font-sans: var(--font-inter);
+  --font-display: var(--font-manrope);
+
+  /* Radius — Tactical: never exceed 4px */
+  --radius-sm: 2px;
+  --radius-DEFAULT: 4px;
 }
 
 /* ── Base ── */
 
 :root {
-  --background: #f8f9ff;
-  --foreground: #0b1c30;
+  --background: #fcf9f4;
+  --foreground: #1c1c19;
 }
 
 body {
@@ -72,6 +77,13 @@ body {
   line-height: 1.3;
 }
 
+.text-headline-sm {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
 .text-title-sm {
   font-size: 1rem;
   font-weight: 700;
@@ -85,7 +97,7 @@ body {
 }
 
 .text-label-sm {
-  font-size: 0.65rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -94,21 +106,21 @@ body {
 /* ── Command Gradient (Primary → Primary Container) ── */
 
 .command-gradient {
-  background: linear-gradient(135deg, #00331b, #1b4a30);
+  background: linear-gradient(135deg, #a04100, #ff6b00);
 }
 
 /* ── Progress Gradient ── */
 
 .progress-gradient {
-  background: linear-gradient(90deg, #00331b, #6ddc96);
+  background: linear-gradient(90deg, #a04100, #ff8c42);
 }
 
 /* ── Glassmorphism Overlay ── */
 
 .glass-overlay {
-  background: rgba(223, 228, 221, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(252, 249, 244, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 /* ── Scrollbar ── */
@@ -122,7 +134,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #74796f;
+  background: #c8c5bc;
 }
 
 /* ── Range Slider ── */
@@ -131,8 +143,9 @@ input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
-  background: #c1c9c0;
+  background: #c8c5bc;
   outline: none;
+  border-radius: 2px;
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -140,7 +153,7 @@ input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
-  background: #00331b;
-  border-radius: 50%;
+  background: #a04100;
+  border-radius: 2px;
   cursor: pointer;
 }

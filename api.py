@@ -25,6 +25,21 @@ app.add_middleware(
 )
 
 
+# ── Helpers ──
+
+def fetch_all(query, page_size: int = 1000) -> list[dict]:
+    """Paginate through a Supabase query to bypass the default 1 000-row cap."""
+    all_rows: list[dict] = []
+    offset = 0
+    while True:
+        page = query.range(offset, offset + page_size - 1).execute().data
+        all_rows.extend(page)
+        if len(page) < page_size:
+            break
+        offset += page_size
+    return all_rows
+
+
 # ── Health ──
 
 @app.get("/health")
@@ -38,6 +53,7 @@ def health():
 def list_bids(
     city: Optional[str] = Query(None, description="Filter by city name"),
     status: Optional[str] = Query(None, description="Filter by bid status"),
+    year: Optional[int] = Query(None, description="Filter by year"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
@@ -46,6 +62,8 @@ def list_bids(
         query = query.eq("city", city)
     if status:
         query = query.eq("bid_status", status)
+    if year:
+        query = query.eq("year", year)
     query = query.order("bid_closing_date", desc=True).range(offset, offset + limit - 1)
     return query.execute().data
 
@@ -71,6 +89,7 @@ def get_bid(bid_number: str):
 def list_meetings(
     city: Optional[str] = Query(None, description="Filter by city name"),
     document_type: Optional[str] = Query(None, description="Filter by document type"),
+    year: Optional[int] = Query(None, description="Filter by year"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
@@ -79,6 +98,8 @@ def list_meetings(
         query = query.eq("city", city)
     if document_type:
         query = query.eq("document_type", document_type)
+    if year:
+        query = query.eq("year", year)
     query = query.order("meeting_date", desc=True).range(offset, offset + limit - 1)
     return query.execute().data
 
@@ -89,6 +110,7 @@ def list_meetings(
 def list_signals(
     city: Optional[str] = Query(None, description="Filter by city"),
     category: Optional[SignalCategory] = Query(None, description="Filter by signal category"),
+    year: Optional[int] = Query(None, description="Filter by year"),
     min_confidence: float = Query(0.0, ge=0.0, le=1.0),
     min_score: float = Query(0.0, ge=0.0, le=1.0),
     limit: int = Query(50, ge=1, le=500),
@@ -99,6 +121,8 @@ def list_signals(
         query = query.eq("city", city)
     if category:
         query = query.eq("signal_category", category.value)
+    if year:
+        query = query.eq("year", year)
     if min_confidence > 0:
         query = query.gte("confidence", min_confidence)
     if min_score > 0:
@@ -112,12 +136,68 @@ def list_signal_categories():
     return [{"value": c.value, "label": c.value.replace("_", " ").title()} for c in SignalCategory]
 
 
+@app.get("/signals/pipeline")
+def signal_pipeline(city: Optional[str] = Query(None), year: Optional[int] = Query(None)):
+    """Signal counts grouped by procurement stage for funnel visualization."""
+    query = get_supabase().table("signals").select("procurement_stage, score, confidence")
+    if city:
+        query = query.eq("city", city)
+    if year:
+        query = query.eq("year", year)
+    rows = fetch_all(query)
+
+    by_stage: dict[str, dict] = {}
+    for r in rows:
+        stage = r.get("procurement_stage") or "unknown"
+        if stage not in by_stage:
+            by_stage[stage] = {"count": 0, "total_score": 0.0, "total_confidence": 0.0}
+        by_stage[stage]["count"] += 1
+        by_stage[stage]["total_score"] += r.get("score", 0)
+        by_stage[stage]["total_confidence"] += r.get("confidence", 0)
+
+    # Ordered by procurement lifecycle
+    stage_order = [
+        "needs_identified", "study_authorized", "budget_allocated",
+        "market_research", "specification_development", "rfp_imminent",
+        "rfp_published", "evaluation_in_progress", "shortlisted",
+        "negotiation", "awarded", "contract_execution", "in_progress", "closeout",
+    ]
+
+    result = []
+    for stage in stage_order:
+        vals = by_stage.get(stage, {"count": 0, "total_score": 0.0, "total_confidence": 0.0})
+        n = vals["count"]
+        result.append({
+            "stage": stage,
+            "label": stage.replace("_", " ").title(),
+            "count": n,
+            "avg_score": round(vals["total_score"] / n, 3) if n else 0,
+            "avg_confidence": round(vals["total_confidence"] / n, 3) if n else 0,
+        })
+
+    # Add unknown if present
+    if "unknown" in by_stage:
+        vals = by_stage["unknown"]
+        n = vals["count"]
+        result.append({
+            "stage": "unknown",
+            "label": "Unclassified",
+            "count": n,
+            "avg_score": round(vals["total_score"] / n, 3) if n else 0,
+            "avg_confidence": round(vals["total_confidence"] / n, 3) if n else 0,
+        })
+
+    return result
+
+
 @app.get("/signals/stats")
-def signal_stats(city: Optional[str] = Query(None)):
+def signal_stats(city: Optional[str] = Query(None), year: Optional[int] = Query(None)):
     query = get_supabase().table("signals").select("signal_category, score, confidence")
     if city:
         query = query.eq("city", city)
-    rows = query.execute().data
+    if year:
+        query = query.eq("year", year)
+    rows = fetch_all(query)
 
     by_category: dict[str, dict] = {}
     for r in rows:
@@ -162,22 +242,38 @@ def list_pdf_documents(
 # ── Cities ──
 
 @app.get("/cities")
-def list_cities():
-    rows = get_supabase().table("bids").select("city").execute().data
-    cities = sorted({r["city"] for r in rows if r.get("city")})
+def list_cities(year: Optional[int] = Query(None)):
+    sb = get_supabase()
+    bids_q = sb.table("bids").select("city")
+    signals_q = sb.table("signals").select("city")
+    if year:
+        bids_q = bids_q.eq("year", year)
+        signals_q = signals_q.eq("year", year)
+    bid_rows = fetch_all(bids_q)
+    signal_rows = fetch_all(signals_q)
+    cities = sorted({r["city"] for r in (bid_rows + signal_rows) if r.get("city")})
     return cities
 
 
 # ── Accounts (City/Agency Profiles) ──
 
 @app.get("/accounts")
-def list_accounts():
+def list_accounts(year: Optional[int] = Query(None, description="Filter by year")):
     """Aggregated stats per city across all tables."""
     sb = get_supabase()
-    bids = sb.table("bids").select("city, bid_status").execute().data
-    signals = sb.table("signals").select("city, score, confidence").execute().data
-    meetings = sb.table("meetings").select("city").execute().data
-    docs = sb.table("pdf_documents").select("city, status, signals_extracted").execute().data
+    bids_q = sb.table("bids").select("city, bid_status")
+    signals_q = sb.table("signals").select("city, score, confidence")
+    meetings_q = sb.table("meetings").select("city")
+    docs_q = sb.table("pdf_documents").select("city, status, signals_extracted")
+    if year:
+        bids_q = bids_q.eq("year", year)
+        signals_q = signals_q.eq("year", year)
+        meetings_q = meetings_q.eq("year", year)
+        docs_q = docs_q.eq("year", year)
+    bids = fetch_all(bids_q)
+    signals = fetch_all(signals_q)
+    meetings = fetch_all(meetings_q)
+    docs = fetch_all(docs_q)
 
     cities: dict[str, dict] = {}
 

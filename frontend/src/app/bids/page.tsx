@@ -10,17 +10,18 @@ export default function BidsExplorerPage() {
   const [cityFilter, setCityFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [yearFilter, setYearFilter] = useState<number | undefined>(2026);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const pageSize = 15;
 
-  useEffect(() => { getCities().then(setCities).catch(() => {}); }, []);
+  useEffect(() => { getCities({ year: yearFilter }).then(setCities).catch(() => {}); }, [yearFilter]);
 
   useEffect(() => {
     setLoading(true);
-    getBids({ city: cityFilter || undefined, status: statusFilter || undefined, limit: pageSize, offset: (page - 1) * pageSize })
+    getBids({ city: cityFilter || undefined, status: statusFilter || undefined, year: yearFilter, limit: pageSize, offset: (page - 1) * pageSize })
       .then(setBids).catch(() => setBids([])).finally(() => setLoading(false));
-  }, [cityFilter, statusFilter, page]);
+  }, [cityFilter, statusFilter, yearFilter, page]);
 
   const filtered = searchQuery ? bids.filter((b) => b.bid_name.toLowerCase().includes(searchQuery.toLowerCase())) : bids;
   const openCount = bids.filter((b) => b.bid_status.toLowerCase().includes("open")).length;
@@ -50,6 +51,20 @@ export default function BidsExplorerPage() {
           <div className="mb-6">
             <p className="text-label-sm text-on-surface font-bold mb-3 tracking-[0.05em]">Search</p>
             <input type="text" placeholder="Search bid names..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-white text-sm text-on-surface px-3 py-2.5 rounded-sm outline-none focus:ring-1 focus:ring-primary transition-all placeholder:text-outline/40" />
+          </div>
+          <div className="mb-6">
+            <p className="text-label-sm text-on-surface font-bold mb-3 tracking-[0.05em]">Fiscal Year</p>
+            <div className="flex gap-0">
+              {[undefined, 2024, 2025, 2026].map((y) => (
+                <button
+                  key={y ?? "all"}
+                  onClick={() => { setYearFilter(y); setPage(1); }}
+                  className={`flex-1 px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${yearFilter === y ? "command-gradient text-on-primary" : "bg-white text-on-surface-variant hover:text-primary"}`}
+                >
+                  {y ?? "All"}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

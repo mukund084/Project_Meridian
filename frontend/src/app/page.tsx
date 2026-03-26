@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Badge } from "@/components/badge";
 import {
   getBids, getSignals, getSignalStats, getMeetings, getPDFDocuments,
-  type Bid, type Signal, type SignalStat, type Meeting,
+  getSignalPipeline, getAccounts, getCities,
+  type Bid, type Signal, type SignalStat, type Meeting, type PipelineStage, type Account,
 } from "@/lib/api";
 
 export default function DashboardPage() {
@@ -13,187 +14,473 @@ export default function DashboardPage() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [stats, setStats] = useState<SignalStat[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [pipeline, setPipeline] = useState<PipelineStage[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [docStats, setDocStats] = useState({ total: 0, pending: 0 });
+  const [cityList, setCityList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
 
   useEffect(() => {
+    setLoading(true);
+    const y = selectedYear;
     Promise.all([
-      getBids({ limit: 10 }),
-      getSignals({ limit: 5, min_score: 0.5 }),
-      getSignalStats(),
-      getMeetings({ limit: 5 }),
+      getBids({ limit: 20, year: y }),
+      getSignals({ limit: 10, min_score: 0.5, year: y }),
+      getSignalStats({ year: y }),
+      getMeetings({ limit: 5, year: y }),
       getPDFDocuments({ limit: 200 }),
+      getSignalPipeline({ year: y }),
+      getAccounts({ year: y }),
+      getCities({ year: y }),
     ])
-      .then(([b, s, st, m, docs]) => {
+      .then(([b, s, st, m, docs, pipe, accts, cities]) => {
         setBids(b);
         setSignals(s);
         setStats(st);
         setMeetings(m);
         const pending = docs.filter((d) => d.status === "pending").length;
         setDocStats({ total: docs.length, pending });
+        setPipeline(pipe);
+        setAccounts(accts);
+        setCityList(cities);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedYear]);
 
-  const totalSignals = stats.reduce((sum, s) => sum + s.count, 0);
-  const highConfidence = stats.reduce((sum, s) => sum + (s.avg_confidence >= 0.7 ? s.count : 0), 0);
+  // Derive totals from accounts (accurate aggregation) instead of limited fetches
+  const totalSignals = accounts.reduce((sum, a) => sum + a.total_signals, 0);
+  const totalBids = accounts.reduce((sum, a) => sum + a.total_bids, 0);
+  const totalOpenBids = accounts.reduce((sum, a) => sum + a.open_bids, 0);
+  const totalMeetings = accounts.reduce((sum, a) => sum + a.total_meetings, 0);
+  const totalCities = cityList.length;
 
   if (loading) {
-    return <div className="p-10"><div className="text-on-surface-variant text-sm">Loading intelligence...</div></div>;
+    return (
+      <div className="p-10 flex items-center gap-3">
+        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+        <span className="text-on-surface-variant text-sm">Loading intelligence...</span>
+      </div>
+    );
   }
+
+  const dailyLeads = signals.filter((s) => s.score >= 0.8).slice(0, 3);
+  const pipelineWithData = pipeline.filter((p) => p.count > 0);
+  const maxPipelineCount = Math.max(...pipelineWithData.map((p) => p.count), 1);
+  const topCities = accounts.slice(0, 8);
+  const maxCitySignals = Math.max(...topCities.map((a) => a.total_signals), 1);
 
   return (
     <div className="p-8">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <p className="text-label-sm text-on-surface-variant mb-1">Strategic Overview</p>
-          <h1 className="text-[2.2rem] font-bold text-on-surface leading-tight">
+          <p className="text-label-sm text-on-surface-variant tracking-[0.2em] mb-1.5">Strategic Overview</p>
+          <h1 className="text-[2.4rem] font-bold text-on-surface leading-[1.1] tracking-tight">
             Intelligence Command
           </h1>
         </div>
         <div className="flex gap-3 mt-2">
-          <button className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-on-surface bg-surface-low hover:bg-surface-high transition-colors rounded-sm">
+          <button className="px-5 py-2.5 text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant bg-surface-low hover:bg-surface-high transition-colors">
             Export Report
           </button>
-          <button className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-on-primary command-gradient hover:opacity-90 transition-opacity rounded-sm">
+          <button className="px-5 py-2.5 text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-primary command-gradient hover:opacity-90 transition-opacity">
             New Signal Scan
           </button>
         </div>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-4 gap-6 mb-10">
-        <DashStatCard label="Total Active Bids" value={bids.length} accent="+12%" />
-        <DashStatCard label="High-Confidence Signals" value={highConfidence} accent="New Today" accentType="active" />
-        <DashStatCard label="Processed Docs" value={docStats.total.toLocaleString()} accent={`${docStats.pending} Pending`} />
-        <DashStatCard label="Upcoming Meetings" value={String(meetings.length).padStart(2, "0")} accent="Active" accentType="active" />
+      {/* ── Year Filter ── */}
+      <div className="flex items-center gap-4 mb-10">
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant">Fiscal Year</p>
+        <div className="flex gap-0">
+          {[2024, 2025, 2026].map((y) => (
+            <button
+              key={y}
+              onClick={() => setSelectedYear(y)}
+              className={`px-4 py-1.5 text-xs font-bold transition-colors ${
+                selectedYear === y
+                  ? "command-gradient text-on-primary"
+                  : "bg-white text-on-surface-variant hover:text-primary"
+              }`}
+            >
+              FY {y}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-12 gap-8">
-        {/* Recent Signals */}
-        <div className="col-span-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[1rem] font-bold text-on-surface">Recent Intelligence Signals</h2>
-            <Link href="/signals" className="text-label-sm text-on-surface-variant hover:text-primary transition-colors tracking-wider">
-              View All Signals
+      {/* ── KPI Row ── */}
+      <div className="grid grid-cols-4 gap-5 mb-12">
+        <KPICard icon="signals" label="Signals" value={totalSignals.toLocaleString()} change={`${stats.length} categories`} />
+        <KPICard icon="bids" label="Bids" value={totalBids.toLocaleString()} change={`${totalOpenBids} open`} positive />
+        <KPICard icon="meetings" label="Meetings" value={totalMeetings.toLocaleString()} change={`${totalCities} municipalities`} />
+        <KPICard icon="docs" label="Documents" value={docStats.total.toLocaleString()} change={`${docStats.pending} pending`} />
+      </div>
+
+      {/* ── Daily Leads ── */}
+      {dailyLeads.length > 0 && (
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-[1.15rem] font-bold text-on-surface">Daily Leads</h2>
+              <p className="text-xs text-on-surface-variant mt-0.5">Highest-scoring opportunities requiring attention</p>
+            </div>
+            <Link href="/signals" className="text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant hover:text-primary transition-colors">
+              View All Signals &rarr;
             </Link>
           </div>
-          <div className="bg-white rounded-sm">
-            {signals.map((s, i) => (
-              <div key={i} className="px-6 py-5 flex items-start justify-between hover:bg-surface-low/30 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Badge variant="active">{formatStage(s.procurement_stage || s.signal_type)}</Badge>
-                    <span className="text-label-sm text-on-surface-variant tracking-wider">
-                      Detected {formatTimeAgo(s.extracted_at)}
-                    </span>
-                  </div>
-                  <h3 className="text-[0.95rem] font-semibold text-on-surface mb-1">
-                    {s.summary.length > 65 ? s.summary.slice(0, 65) + "\u2026" : s.summary}
-                  </h3>
-                  <p className="text-sm text-on-surface-variant line-clamp-1">{s.raw_excerpt.slice(0, 120)}...</p>
-                </div>
-                <div className="ml-6 text-right shrink-0">
-                  <p className="text-2xl font-bold text-on-surface">{(s.confidence * 100).toFixed(0)}%</p>
-                  <p className="text-label-sm text-on-surface-variant tracking-wider">Confidence</p>
-                </div>
-              </div>
+          <div className="grid grid-cols-3 gap-5">
+            {dailyLeads.map((s, i) => (
+              <DailyLeadCard key={i} signal={s} />
             ))}
-            {signals.length === 0 && (
-              <div className="px-6 py-12 text-center text-on-surface-variant text-sm">No high-value signals detected.</div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Two-column: Pipeline + Top Cities ── */}
+      <div className="grid grid-cols-12 gap-8 mb-12">
+        {/* Procurement Pipeline Funnel */}
+        <section className="col-span-7">
+          <div className="mb-5">
+            <h2 className="text-[1.15rem] font-bold text-on-surface">Procurement Pipeline</h2>
+            <p className="text-xs text-on-surface-variant mt-0.5">Signal distribution across procurement lifecycle stages</p>
+          </div>
+          <div className="bg-white p-6">
+            {pipelineWithData.length > 0 ? (
+              <div className="space-y-2.5">
+                {pipelineWithData.map((stage) => {
+                  const width = Math.max((stage.count / maxPipelineCount) * 100, 8);
+                  const isHot = stage.stage === "rfp_imminent" || stage.stage === "rfp_published" || stage.stage === "specification_development";
+                  return (
+                    <div key={stage.stage} className="group">
+                      <div className="flex items-center gap-4">
+                        <div className="w-[140px] shrink-0 text-right">
+                          <span className={`text-xs font-medium ${isHot ? "text-primary font-bold" : "text-on-surface-variant"}`}>
+                            {stage.label}
+                          </span>
+                        </div>
+                        <div className="flex-1 h-8 bg-surface-low relative overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-700 ease-out flex items-center px-3 ${isHot ? "command-gradient" : "bg-primary-fixed"}`}
+                            style={{ width: `${width}%` }}
+                          >
+                            <span className={`text-xs font-bold ${isHot ? "text-white" : "text-on-primary-fixed"}`}>
+                              {stage.count}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-[60px] shrink-0">
+                          <span className="text-[0.6rem] text-on-surface-variant">
+                            {stage.avg_confidence > 0 ? `${(stage.avg_confidence * 100).toFixed(0)}% conf` : ""}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-on-surface-variant text-center py-8">No pipeline data available.</p>
+            )}
+
+            {/* Pipeline legend */}
+            <div className="flex items-center gap-6 mt-6 pt-4" style={{ borderTop: "1px solid rgba(200,197,188,0.3)" }}>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 command-gradient" />
+                <span className="text-[0.6rem] text-on-surface-variant uppercase tracking-wider">Hot Stages (Near RFP)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-primary-fixed" />
+                <span className="text-[0.6rem] text-on-surface-variant uppercase tracking-wider">Other Stages</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Top Cities by Activity */}
+        <section className="col-span-5">
+          <div className="mb-5">
+            <h2 className="text-[1.15rem] font-bold text-on-surface">Top Cities</h2>
+            <p className="text-xs text-on-surface-variant mt-0.5">Municipalities ranked by total intelligence signals</p>
+          </div>
+          <div className="bg-white p-6">
+            {topCities.length > 0 ? (
+              <div className="space-y-3">
+                {topCities.map((city, i) => {
+                  const width = Math.max((city.total_signals / maxCitySignals) * 100, 12);
+                  return (
+                    <Link key={city.city} href={`/accounts/${encodeURIComponent(city.city)}`} className="block group">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[0.6rem] font-bold text-on-surface-variant w-4 text-right">{i + 1}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-on-surface group-hover:text-primary transition-colors">{city.city}</span>
+                            <span className="text-xs text-on-surface-variant">{city.total_signals} signals</span>
+                          </div>
+                          <div className="h-2 bg-surface-low">
+                            <div className="h-full progress-gradient transition-all duration-500" style={{ width: `${width}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-on-surface-variant text-center py-8">No city data available.</p>
+            )}
+
+            {/* City summary */}
+            <div className="grid grid-cols-3 gap-4 mt-6 pt-4" style={{ borderTop: "1px solid rgba(200,197,188,0.3)" }}>
+              <div className="text-center">
+                <p className="text-lg font-bold text-on-surface">{totalCities}</p>
+                <p className="text-[0.6rem] text-on-surface-variant uppercase tracking-wider">Cities</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-on-surface">{totalBids.toLocaleString()}</p>
+                <p className="text-[0.6rem] text-on-surface-variant uppercase tracking-wider">Total Bids</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-on-surface">{totalOpenBids.toLocaleString()}</p>
+                <p className="text-[0.6rem] text-on-surface-variant uppercase tracking-wider">Open</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* ── Bottom: Pipeline Health + Recent Briefings ── */}
+      <div className="grid grid-cols-12 gap-8">
+        {/* Pipeline Health */}
+        <div className="col-span-5">
+          <div className="command-gradient p-6 text-white">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/60">System Status</p>
+                <p className="text-[1rem] font-bold mt-0.5">Pipeline Health</p>
+              </div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M3 18l5-7 5 5 8-10" stroke="#ff8c42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div className="space-y-4">
+              <PipelineBar label="Extracted" value={docStats.total > 0 ? Math.round(((docStats.total - docStats.pending) / docStats.total) * 100) : 0} />
+              <PipelineBar label="Pending" value={docStats.total > 0 ? Math.round((docStats.pending / docStats.total) * 100) : 0} />
+            </div>
+            <div className="mt-5 pt-4 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+              <p className="text-[0.65rem] text-white/40">{docStats.total} total documents</p>
+              <p className="text-[0.65rem] text-white/40">{docStats.pending} in queue</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Briefings */}
+        <div className="col-span-7">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-[1.15rem] font-bold text-on-surface">Recent Briefings</h2>
+            <Link href="/meetings" className="text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant hover:text-primary transition-colors">
+              View All &rarr;
+            </Link>
+          </div>
+          <div className="bg-white">
+            {meetings.slice(0, 4).map((m, i) => (
+              <a
+                key={i}
+                href={m.pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 px-5 py-4 hover:bg-surface-low/30 transition-colors group"
+              >
+                <div className="w-9 h-9 bg-surface-low flex items-center justify-center shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 1h6l4 4v10H4V1z" stroke="#8a8a80" strokeWidth="1.2" />
+                    <path d="M10 1v4h4" stroke="#8a8a80" strokeWidth="1.2" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors truncate">{m.meeting_title}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">{m.city} &middot; {m.meeting_date}</p>
+                </div>
+                <Badge variant={m.document_type.toLowerCase() === "minutes" ? "active" : "muted"}>
+                  {m.document_type}
+                </Badge>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── KPI Card ── */
+function KPICard({ icon, label, value, change, positive }: {
+  icon: string; label: string; value: string; change: string; positive?: boolean;
+}) {
+  const icons: Record<string, React.ReactNode> = {
+    signals: (
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <path d="M10 2v16M6 6v10M2 9v4M14 4v12M18 7v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+    bids: (
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <path d="M4 2h12v16l-3-2-3 2-3-2-3 2V2z" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M7 7h6M7 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+    meetings: (
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <circle cx="7" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M1 17c0-3 2.5-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    ),
+    docs: (
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <path d="M5 2h7l5 5v11H5V2z" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M12 2v5h5" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    ),
+  };
+
+  return (
+    <div className="bg-white p-5">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant">{label}</p>
+        <span className="text-outline/60">{icons[icon]}</span>
+      </div>
+      <p className="text-[2.2rem] font-bold text-on-surface leading-none tracking-tight">{value}</p>
+      <p className={`text-xs mt-2 ${positive ? "text-primary-container font-semibold" : "text-on-surface-variant"}`}>{change}</p>
+    </div>
+  );
+}
+
+/* ── Daily Lead Card ── */
+function DailyLeadCard({ signal }: { signal: Signal }) {
+  return (
+    <div className="bg-white overflow-hidden group hover:shadow-[0px_20px_40px_rgba(11,28,48,0.06)] transition-shadow">
+      {/* Gradient top accent */}
+      <div className="h-1.5 progress-gradient" />
+
+      <div className="p-6">
+        {/* Lead badge */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-[0.9rem]">&#x1F525;</span>
+          <span className="text-[0.6rem] font-bold text-primary-container uppercase tracking-[0.2em]">Daily Lead</span>
+          <span className="ml-auto text-xs font-bold text-on-surface">{signal.score.toFixed(2)}</span>
+        </div>
+
+        {/* Title */}
+        <h3 className="text-[0.95rem] font-bold text-on-surface leading-snug mb-3 line-clamp-2">
+          {signal.summary}
+        </h3>
+
+        {/* Excerpt */}
+        <p className="text-[0.8rem] text-on-surface-variant leading-relaxed mb-5 line-clamp-3">
+          {signal.raw_excerpt}
+        </p>
+
+        {/* Signals breakdown */}
+        <div className="mb-4">
+          <p className="text-[0.6rem] font-bold text-primary-container uppercase tracking-[0.2em] mb-2">Signals</p>
+          <div className="space-y-1.5">
+            <div className="flex items-start gap-2">
+              <span className="text-[0.6rem] font-bold text-primary-container mt-0.5">1.</span>
+              <p className="text-[0.8rem] text-on-surface"><span className="font-semibold">Category:</span> {fmt(signal.signal_category)}</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-[0.6rem] font-bold text-primary-container mt-0.5">2.</span>
+              <p className="text-[0.8rem] text-on-surface"><span className="font-semibold">Stage:</span> {signal.procurement_stage ? fmt(signal.procurement_stage) : "Early Detection"}</p>
+            </div>
+            {signal.estimated_value && (
+              <div className="flex items-start gap-2">
+                <span className="text-[0.6rem] font-bold text-primary-container mt-0.5">3.</span>
+                <p className="text-[0.8rem] text-on-surface"><span className="font-semibold">Value:</span> ${fmtValue(signal.estimated_value)}</p>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Right panel */}
-        <div className="col-span-4 space-y-6">
-          {/* Ingestion Status */}
-          <div>
-            <h3 className="text-label-sm text-on-surface-variant tracking-[0.2em] mb-3">Ingestion Status</h3>
-            <div className="command-gradient p-5 text-white rounded-sm">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-semibold uppercase tracking-wider">Pipeline Health</p>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M3 15l4-6 4 4 6-8" stroke="#6ddc96" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div className="space-y-3">
-                <ProgressRow label="Extracted" value={docStats.total > 0 ? Math.round(((docStats.total - docStats.pending) / docStats.total) * 100) : 0} color="bg-primary-fixed-dim" />
-                <ProgressRow label="Pending" value={docStats.total > 0 ? Math.round((docStats.pending / docStats.total) * 100) : 0} color="bg-secondary-container" />
-              </div>
-              <p className="text-[0.7rem] text-white/50 mt-4 leading-relaxed">
-                Processing procurement PDFs and meeting transcripts across Canadian municipalities.
-              </p>
-            </div>
-          </div>
+        {/* Why it matters */}
+        <div className="mb-5">
+          <p className="text-[0.6rem] font-bold text-primary-container uppercase tracking-[0.2em] mb-2">Why it matters</p>
+          <p className="text-[0.8rem] text-on-surface-variant leading-relaxed">
+            {signal.confidence >= 0.9 ? "Very high" : "High"} confidence signal from {signal.city}
+            {signal.estimated_timeline ? `. Timeline: ${signal.estimated_timeline}` : ""}.
+            {" "}This indicates {getStageInsight(signal.procurement_stage)}.
+          </p>
+        </div>
 
-          {/* Critical Briefings */}
-          <div>
-            <h3 className="text-label-sm text-on-surface-variant tracking-[0.2em] mb-3">Critical Briefings</h3>
-            <div className="space-y-0">
-              {meetings.slice(0, 3).map((m, i) => (
-                <div key={i} className="bg-white px-5 py-4 flex items-start gap-3 hover:bg-surface-low/30 transition-colors rounded-sm">
-                  <div className="w-8 h-8 bg-primary-fixed/30 flex items-center justify-center shrink-0 mt-0.5 rounded-sm">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <circle cx="5" cy="5" r="2.5" stroke="#00331b" strokeWidth="1.2" />
-                      <path d="M1 13c0-2.5 2-4 5-4" stroke="#00331b" strokeWidth="1.2" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-label-sm text-primary font-bold tracking-wider">{m.meeting_date}</p>
-                    <p className="text-sm font-medium text-on-surface">{m.meeting_title}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Tags */}
+        <div className="flex flex-wrap gap-1.5">
+          <TagChip icon="location">{signal.city}</TagChip>
+          <TagChip>{fmt(signal.signal_category)}</TagChip>
+          <TagChip>{fmt(signal.source_type)}</TagChip>
         </div>
       </div>
     </div>
   );
 }
 
-function DashStatCard({ label, value, accent, accentType = "default" }: {
-  label: string; value: string | number; accent?: string; accentType?: string;
-}) {
+/* ── Tag Chip ── */
+function TagChip({ children, icon }: { children: React.ReactNode; icon?: string }) {
   return (
-    <div className="bg-white p-6 rounded-sm">
-      <p className="text-label-sm text-on-surface-variant tracking-[0.15em] mb-3">{label}</p>
-      <div className="flex items-end justify-between">
-        <p className="text-[2.5rem] font-bold text-on-surface leading-none">{value}</p>
-        {accent && (
-          <span className={`text-xs font-semibold ${accentType === "active" ? "text-primary-container" : "text-on-surface-variant"}`}>
-            {accent}
-          </span>
-        )}
-      </div>
-      <div className="mt-4 h-0.5 bg-primary-fixed/20"><div className="h-full w-2/3 progress-gradient" /></div>
-    </div>
+    <span className="inline-flex items-center gap-1 text-[0.65rem] text-on-surface-variant bg-surface-low px-2 py-0.5 font-medium">
+      {icon === "location" && (
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path d="M5 1C3.3 1 2 2.3 2 4c0 2.5 3 5 3 5s3-2.5 3-5c0-1.7-1.3-3-3-3z" stroke="currentColor" strokeWidth="0.8" />
+          <circle cx="5" cy="4" r="1" fill="currentColor" />
+        </svg>
+      )}
+      {children}
+    </span>
   );
 }
 
-function ProgressRow({ label, value, color }: { label: string; value: number; color: string }) {
+/* ── Pipeline Bar ── */
+function PipelineBar({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span className="uppercase tracking-wider font-semibold">{label}</span>
+      <div className="flex justify-between text-xs mb-1.5">
+        <span className="uppercase tracking-[0.15em] font-semibold text-white/80">{label}</span>
         <span className="font-bold">{value}%</span>
       </div>
-      <div className="h-2 bg-white/10 rounded-sm"><div className={`h-full ${color} rounded-sm`} style={{ width: `${value}%` }} /></div>
+      <div className="h-2 bg-white/10">
+        <div className="h-full bg-primary-fixed-dim transition-all duration-700" style={{ width: `${value}%` }} />
+      </div>
     </div>
   );
 }
 
-function formatStage(s: string) { return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()); }
+/* ── Helpers ── */
+function fmt(s: string) { return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()); }
 
-function formatTimeAgo(d: string) {
-  try {
-    const h = Math.floor((Date.now() - new Date(d).getTime()) / 3600000);
-    if (h < 1) return "Just now";
-    if (h < 24) return `${h}h ago`;
-    return `${Math.floor(h / 24)}d ago`;
-  } catch { return ""; }
+function fmtValue(v: number) {
+  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+  return v.toLocaleString();
+}
+
+function getStageInsight(stage: string | null): string {
+  if (!stage) return "an early-stage opportunity worth monitoring";
+  const insights: Record<string, string> = {
+    needs_identified: "a newly identified need — get in early with advisory",
+    study_authorized: "an authorized study — opportunity to shape requirements",
+    budget_allocated: "allocated budget — funding is secured, procurement is likely",
+    market_research: "active market research — the buyer is evaluating options",
+    specification_development: "specs being written — critical window to influence requirements",
+    rfp_imminent: "an imminent RFP — prepare your response team now",
+    rfp_published: "a published RFP — respond immediately",
+    evaluation_in_progress: "evaluation underway — outcome pending",
+    shortlisted: "shortlisting has occurred — competitive intelligence needed",
+    negotiation: "active negotiation — deal is progressing",
+    awarded: "a contract award — monitor for subcontracting opportunities",
+    contract_execution: "contract execution phase — delivery is underway",
+    in_progress: "an active project — look for expansion or follow-on",
+    closeout: "project closeout — renewal or replacement opportunity ahead",
+  };
+  return insights[stage] || "an active procurement opportunity";
 }

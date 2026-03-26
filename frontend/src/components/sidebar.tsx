@@ -9,9 +9,6 @@ const NAV_ITEMS = [
   { href: "/bids", label: "Bids Explorer", icon: BidsIcon },
   { href: "/meetings", label: "Meeting\nIntelligence", icon: MeetingsIcon },
   { href: "/accounts", label: "Accounts", icon: AccountsIcon },
-  { href: "/contracts", label: "Contract Tracker", icon: ContractsIcon },
-  { href: "/documents", label: "Documents", icon: DocsIcon },
-  { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
 const BOTTOM_ITEMS = [
@@ -23,13 +20,13 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-[250px] h-full bg-white flex flex-col shrink-0">
+    <aside className="w-[250px] h-full bg-surface-low flex flex-col shrink-0">
       {/* Brand */}
       <div className="px-6 pt-6 pb-8">
-        <h1 className="text-[1.15rem] font-extrabold tracking-tight text-primary">
-          NorthSignal
+        <h1 className="text-[1.25rem] font-extrabold tracking-tight text-primary">
+          Meridian
         </h1>
-        <p className="text-[0.58rem] uppercase tracking-[0.25em] text-primary-container font-semibold mt-0.5">
+        <p className="text-[0.55rem] uppercase tracking-[0.25em] text-primary-container font-semibold mt-0.5">
           Canadian Procurement Intelligence
         </p>
       </div>
@@ -80,7 +77,7 @@ export function Sidebar() {
 // ── Icons (green theme) ──
 
 function DashboardIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <rect x="2" y="2" width="7" height="7" rx="1" stroke={c} strokeWidth="1.5" />
@@ -92,7 +89,7 @@ function DashboardIcon({ active }: { active: boolean }) {
 }
 
 function SignalsIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <path d="M10 2v16M6 6v10M2 9v4M14 4v12M18 7v6" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
@@ -101,7 +98,7 @@ function SignalsIcon({ active }: { active: boolean }) {
 }
 
 function BidsIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <path d="M4 2h12v16l-3-2-3 2-3-2-3 2V2z" stroke={c} strokeWidth="1.5" />
@@ -111,7 +108,7 @@ function BidsIcon({ active }: { active: boolean }) {
 }
 
 function MeetingsIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <circle cx="7" cy="7" r="3" stroke={c} strokeWidth="1.5" />
@@ -122,7 +119,7 @@ function MeetingsIcon({ active }: { active: boolean }) {
 }
 
 function AccountsIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <rect x="2" y="4" width="16" height="12" rx="1" stroke={c} strokeWidth="1.5" />
@@ -133,7 +130,7 @@ function AccountsIcon({ active }: { active: boolean }) {
 }
 
 function ContractsIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <circle cx="10" cy="10" r="7" stroke={c} strokeWidth="1.5" />
@@ -143,7 +140,7 @@ function ContractsIcon({ active }: { active: boolean }) {
 }
 
 function DocsIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <path d="M5 2h7l5 5v11H5V2z" stroke={c} strokeWidth="1.5" />
@@ -153,7 +150,7 @@ function DocsIcon({ active }: { active: boolean }) {
 }
 
 function SettingsIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <circle cx="10" cy="10" r="3" stroke={c} strokeWidth="1.5" />
@@ -163,7 +160,7 @@ function SettingsIcon({ active }: { active: boolean }) {
 }
 
 function HelpIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <circle cx="10" cy="10" r="8" stroke={c} strokeWidth="1.5" />
@@ -173,7 +170,7 @@ function HelpIcon({ active }: { active: boolean }) {
 }
 
 function LogOutIcon({ active }: { active: boolean }) {
-  const c = active ? "#00331b" : "#74796f";
+  const c = active ? "#a04100" : "#8a8a80";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <path d="M7 2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7" stroke={c} strokeWidth="1.5" />

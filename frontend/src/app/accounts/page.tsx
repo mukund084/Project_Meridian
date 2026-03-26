@@ -9,7 +9,7 @@ export default function AccountsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getAccounts().then(setAccounts).catch(() => []).finally(() => setLoading(false));
+    getAccounts({}).then(setAccounts).catch(() => []).finally(() => setLoading(false));
   }, []);
 
   const totalBids = accounts.reduce((s, a) => s + a.total_bids, 0);
