@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Badge } from "@/components/badge";
 import {
   getSignals, getSignalStats, getMeetings, getPDFDocuments,
-  getSignalPipeline, getAccounts, getCities, getBidsClosingSoon,
-  type Signal, type SignalStat, type Meeting, type PipelineStage, type Account, type Bid,
+  getSignalPipeline, getAccounts, getCities,
+  type Signal, type SignalStat, type Meeting, type PipelineStage, type Account,
 } from "@/lib/api";
 
 export default function DashboardPage() {
@@ -17,7 +17,6 @@ export default function DashboardPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [docStats, setDocStats] = useState({ total: 0, pending: 0 });
   const [cityList, setCityList] = useState<string[]>([]);
-  const [closingSoon, setClosingSoon] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(2026);
@@ -35,9 +34,8 @@ export default function DashboardPage() {
       getSignalPipeline({ year: y }),
       getAccounts({ year: y }),
       getCities({ year: y }),
-      getBidsClosingSoon({ days: 30, limit: 5 }).catch(() => [] as Bid[]),
     ])
-      .then(([s, st, m, docs, pipe, accts, cities, closing]) => {
+      .then(([s, st, m, docs, pipe, accts, cities]) => {
         setSignals(s);
         setStats(st);
         setMeetings(m);
@@ -46,7 +44,6 @@ export default function DashboardPage() {
         setPipeline(pipe);
         setAccounts(accts);
         setCityList(cities);
-        setClosingSoon(closing);
       })
       .catch((err) => setError(err?.message || "Failed to load dashboard data. Is the API running?"))
       .finally(() => setLoading(false));
@@ -193,49 +190,6 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── Bids Closing Soon ── */}
-      {closingSoon.length > 0 && (
-        <section className="mb-8 md:mb-12">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-[1.15rem] font-bold text-on-surface">Bids Closing Soon</h2>
-              <p className="text-xs text-on-surface-variant mt-0.5">Open bids with approaching deadlines — act now</p>
-            </div>
-            <Link href="/bids" className="text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant hover:text-primary transition-colors">
-              View All Bids &rarr;
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {closingSoon.map((b, i) => (
-              <a
-                key={i}
-                href={b.bid_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-white p-5 hover:shadow-[0px_18px_40px_rgba(160,65,0,0.12)] transition-all duration-200 group/bid"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[0.6rem] font-bold uppercase tracking-[0.2em] text-primary">Closing Soon</span>
-                  </div>
-                  {b.days_left && (
-                    <span className="text-xs font-bold text-primary bg-primary-fixed px-2 py-0.5 rounded-sm">{b.days_left}</span>
-                  )}
-                </div>
-                <h3 className="text-sm font-bold text-on-surface leading-snug mb-2 line-clamp-2 group-hover/bid:text-primary transition-colors">
-                  {b.bid_name}
-                </h3>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-on-surface-variant">{b.city}</span>
-                  <span className="text-[0.6rem] font-bold uppercase tracking-wider text-on-surface-variant">{b.bid_closing_date?.split(",")[0] || ""}</span>
-                </div>
-              </a>
-            ))}
           </div>
         </section>
       )}

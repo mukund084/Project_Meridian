@@ -33,6 +33,9 @@ export interface Bid {
   published_date: string | null;
   description: string | null;
   categories: string[] | null;
+  closing_at_iso?: string | null;
+  days_until_close?: number | null;
+  urgency_level?: "critical" | "high" | "medium" | null;
   purchasing_representive: { name: string; contact_email: string } | null;
   bids_submitted: BidSubmission[] | null;
   plan_takers: PlanTaker[] | null;
@@ -244,10 +247,11 @@ export function globalSearch(query: string) {
   return fetcher<SearchResult[]>(`/search?q=${encodeURIComponent(query)}`);
 }
 
-export function getBidsClosingSoon(params?: { days?: number; city?: string; limit?: number }) {
+export function getBidsClosingSoon(params?: { days?: number; city?: string; year?: number; limit?: number }) {
   const q = new URLSearchParams();
   if (params?.days) q.set("days", String(params.days));
   if (params?.city) q.set("city", params.city);
+  if (params?.year) q.set("year", String(params.year));
   if (params?.limit) q.set("limit", String(params.limit));
   return fetcher<Bid[]>(`/bids/closing-soon?${q}`);
 }

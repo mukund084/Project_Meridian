@@ -87,7 +87,7 @@ export function Badge({ children, variant = "default" }: BadgeProps) {
   const classes = contentColor || VARIANTS[variant];
 
   return (
-    <span className={`inline-block px-3 py-1 text-[0.65rem] font-bold uppercase tracking-widest rounded-[3px] ${classes}`}>
+    <span className={`inline-block px-3.5 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.14em] rounded-[3px] ${classes}`}>
       {children}
     </span>
   );

@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Badge } from "@/components/badge";
 import { getBids, getCities, getBidStats, type Bid } from "@/lib/api";
 
+const BID_RENDER_REFERENCE_TIME = Date.now();
+
 export default function BidsExplorerPage() {
   const [bids, setBids] = useState<Bid[]>([]);
   const [cities, setCities] = useState<string[]>([]);
@@ -196,6 +198,8 @@ function BidCard({ bid: b, isExpanded, onToggle }: {
   const isOpen = b.bid_status.toLowerCase().includes("open");
   const planTakersCount = b.plan_takers?.length ?? 0;
   const bidsSubmittedCount = b.bids_submitted?.length ?? 0;
+  const closingDays = getDaysTillClosing(b.bid_closing_date);
+  const showClosingTag = isOpen && closingDays !== null;
 
   return (
     <div className="bg-white rounded-sm hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
@@ -206,13 +210,12 @@ function BidCard({ bid: b, isExpanded, onToggle }: {
             <Badge variant={isOpen ? "active" : "muted"}>{b.bid_status}</Badge>
             {b.bid_classification && <Badge variant="muted">{b.bid_classification}</Badge>}
             {b.bid_type && <Badge variant="muted">{b.bid_type}</Badge>}
+            {showClosingTag && (
+              <span className={getClosingTagClass(closingDays)}>
+                {formatClosingTag(closingDays)}
+              </span>
+            )}
           </div>
-          {b.days_left && (
-            <div className="flex items-center gap-2 shrink-0 ml-4">
-              <div className={`w-2 h-2 rounded-full ${isOpen ? "bg-primary" : "bg-surface-high"}`} />
-              <span className="text-xs text-on-surface-variant">{b.days_left}</span>
-            </div>
-          )}
         </div>
 
         {/* Title */}
@@ -354,12 +357,12 @@ function BidCard({ bid: b, isExpanded, onToggle }: {
             View Bid &#x2197;
           </a>
         </div>
-        <div className="flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-on-surface-variant">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-fixed/25 border border-primary-fixed-dim/20 rounded-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-primary-container">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.5" />
             <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="1.5" />
           </svg>
-          <span className="text-xs font-medium text-on-surface-variant">{b.city}</span>
+          <span className="text-[0.8rem] font-bold text-on-surface">{b.city}</span>
         </div>
       </div>
     </div>
@@ -378,4 +381,36 @@ function StatBox({ label, value, accent, accentMuted }: { label: string; value: 
       </div>
     </div>
   );
+}
+
+function getDaysTillClosing(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+
+  const cleaned = raw
+    .replace(/\(.*?\)/g, "")
+    .replace(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+/i, "")
+    .trim();
+
+  const parsed = new Date(cleaned);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const diffMs = parsed.getTime() - BID_RENDER_REFERENCE_TIME;
+  return Math.max(Math.ceil(diffMs / 86400000), 0);
+}
+
+function formatClosingTag(days: number): string {
+  if (days === 0) return "Closes Today";
+  if (days === 1) return "1 Day Till Closing";
+  return `${days} Days Till Closing`;
+}
+
+function getClosingTagClass(days: number): string {
+  const base = "inline-block px-3 py-1 text-[0.65rem] font-bold uppercase tracking-widest rounded-[3px] border";
+  if (days < 14) {
+    return `${base} bg-red-100 text-red-800 border-red-300`;
+  }
+  if (days > 30) {
+    return `${base} bg-emerald-100 text-emerald-800 border-emerald-300`;
+  }
+  return `${base} bg-amber-100 text-amber-800 border-amber-300`;
 }

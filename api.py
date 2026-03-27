@@ -515,27 +515,63 @@ def _parse_bid_date(raw: str) -> "datetime | None":
     return None
 
 
+def _format_bid_countdown(parsed: "datetime", now: "datetime") -> str:
+    """Return a short time-left label for urgency UI."""
+    import math
+
+    remaining_seconds = max((parsed - now).total_seconds(), 0)
+    remaining_hours = max(math.ceil(remaining_seconds / 3600), 1)
+    remaining_days = max(math.ceil(remaining_seconds / 86400), 1)
+
+    if remaining_hours <= 24:
+        return f"{remaining_hours}h left"
+    return f"{remaining_days}d left"
+
+
+def _bid_urgency_level(parsed: "datetime", now: "datetime") -> str:
+    import math
+
+    remaining_days = max(math.ceil((parsed - now).total_seconds() / 86400), 0)
+    if remaining_days <= 3:
+        return "critical"
+    if remaining_days <= 7:
+        return "high"
+    return "medium"
+
+
 @app.get("/bids/closing-soon")
 def bids_closing_soon(
     days: int = Query(90, ge=1, le=365, description="Bids closing within N days"),
     city: Optional[str] = Query(None),
+    year: Optional[int] = Query(None),
     limit: int = Query(50, ge=1, le=200),
 ):
     """Open bids with closing dates in the near future."""
     from datetime import datetime, timedelta
+    import math
+
     now = datetime.utcnow()
     cutoff = now + timedelta(days=days)
 
-    query = get_supabase().table("bids").select("*").eq("bid_status", "Open")
+    query = get_supabase().table("bids").select("*")
     if city:
         query = query.eq("city", city)
+    if year:
+        query = query.eq("year", year)
     rows = fetch_all(query)
 
     results = []
     for row in rows:
+        if "open" not in (row.get("bid_status") or "").lower():
+            continue
+
         parsed = _parse_bid_date(row.get("bid_closing_date", ""))
         if parsed and now <= parsed <= cutoff:
             row["_parsed_date"] = parsed.isoformat()
+            row["closing_at_iso"] = parsed.isoformat()
+            row["days_until_close"] = max(math.ceil((parsed - now).total_seconds() / 86400), 0)
+            row["days_left"] = _format_bid_countdown(parsed, now)
+            row["urgency_level"] = _bid_urgency_level(parsed, now)
             results.append(row)
 
     results.sort(key=lambda r: r["_parsed_date"])
