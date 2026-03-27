@@ -141,7 +141,7 @@ export default function BidsExplorerPage() {
 
 function StatBox({ label, value, accent, accentMuted }: { label: string; value: string | number; accent?: string; accentMuted?: boolean }) {
   return (
-    <div className="bg-white p-5 rounded-sm">
+    <div className="bg-white p-5 rounded-sm hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
       <p className="text-label-sm text-on-surface-variant tracking-[0.15em] mb-2">{label}</p>
       <div className="flex items-end gap-3">
         <p className="text-[2.2rem] font-bold text-on-surface leading-none">{value}</p>

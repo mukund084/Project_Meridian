@@ -187,7 +187,7 @@ export default function DashboardPage() {
             <h2 className="text-[1.15rem] font-bold text-on-surface">Procurement Pipeline</h2>
             <p className="text-xs text-on-surface-variant mt-0.5">Signal distribution across procurement lifecycle stages</p>
           </div>
-          <div className="bg-white p-6">
+          <div className="bg-white p-6 hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
             {pipelineWithData.length > 0 ? (
               <div className="space-y-2.5">
                 {pipelineWithData.map((stage) => {
@@ -247,7 +247,7 @@ export default function DashboardPage() {
               <h2 className="text-[1.15rem] font-bold text-on-surface">Top Cities</h2>
               <p className="text-xs text-on-surface-variant mt-0.5">Municipalities ranked by total intelligence signals</p>
             </div>
-            <div className="bg-white p-6">
+            <div className="bg-white p-6 hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
               {topCities.length > 0 ? (
                 <div className="space-y-3">
                   {topCities.map((city, i) => {
@@ -292,25 +292,27 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* Pipeline Health */}
-          <section>
-            <div className="command-gradient p-6 text-white h-full">
-              <div className="flex items-center justify-between mb-5">
+        {/* Pipeline Health */}
+        <section>
+            <div className="relative overflow-hidden bg-white p-6 h-full hover:shadow-[0px_18px_40px_rgba(160,65,0,0.16)] transition-shadow duration-200">
+              <div className="relative flex items-center justify-between mb-5">
                 <div>
-                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/60">System Status</p>
-                  <p className="text-[1rem] font-bold mt-0.5">Pipeline Health</p>
+                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-primary-container">System Status</p>
+                  <p className="text-[1rem] font-bold mt-0.5 text-on-surface">Pipeline Health</p>
                 </div>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M3 18l5-7 5 5 8-10" stroke="#ff8c42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <div className="w-10 h-10 bg-primary-fixed flex items-center justify-center rounded-sm">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-primary-container">
+                    <path d="M3 18l5-7 5 5 8-10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
               </div>
-              <div className="space-y-4">
+              <div className="relative space-y-4">
                 <PipelineBar label="Extracted" value={docStats.total > 0 ? Math.round(((docStats.total - docStats.pending) / docStats.total) * 100) : 0} />
                 <PipelineBar label="Pending" value={docStats.total > 0 ? Math.round((docStats.pending / docStats.total) * 100) : 0} />
               </div>
-              <div className="mt-5 pt-4 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-                <p className="text-[0.65rem] text-white/40">{docStats.total} total documents</p>
-                <p className="text-[0.65rem] text-white/40">{docStats.pending} in queue</p>
+              <div className="relative mt-5 pt-4 flex items-center justify-between border-t border-surface-high">
+                <p className="text-[0.65rem] text-on-surface-variant">{docStats.total} total documents</p>
+                <p className="text-[0.65rem] text-on-surface-variant">{docStats.pending} in queue</p>
               </div>
             </div>
           </section>
@@ -325,7 +327,7 @@ export default function DashboardPage() {
             View All &rarr;
           </Link>
         </div>
-        <div className="bg-white">
+        <div className="bg-white overflow-hidden hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
           {meetings.slice(0, 4).map((m, i) => (
             <a
               key={i}
@@ -386,7 +388,7 @@ function KPICard({ icon, label, value, change, positive }: {
   };
 
   return (
-    <div className="bg-white p-5">
+    <div className="bg-white p-5 hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
       <div className="flex items-center justify-between mb-4">
         <p className="text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant">{label}</p>
         <span className="text-outline/60">{icons[icon]}</span>
@@ -400,7 +402,7 @@ function KPICard({ icon, label, value, change, positive }: {
 /* ── Daily Lead Card ── */
 function DailyLeadCard({ signal }: { signal: Signal }) {
   return (
-    <div className="bg-white overflow-hidden group hover:shadow-[0px_20px_40px_rgba(11,28,48,0.06)] transition-shadow">
+    <div className="bg-white overflow-hidden group hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
       {/* Gradient top accent */}
       <div className="h-1.5 progress-gradient" />
 
@@ -484,11 +486,11 @@ function PipelineBar({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <div className="flex justify-between text-xs mb-1.5">
-        <span className="uppercase tracking-[0.15em] font-semibold text-white/80">{label}</span>
-        <span className="font-bold">{value}%</span>
+        <span className="uppercase tracking-[0.15em] font-semibold text-on-surface-variant">{label}</span>
+        <span className="font-bold text-primary">{value}%</span>
       </div>
-      <div className="h-2 bg-white/10">
-        <div className="h-full bg-primary-fixed-dim transition-all duration-700" style={{ width: `${value}%` }} />
+      <div className="h-2.5 rounded-full bg-surface-low overflow-hidden">
+        <div className="h-full rounded-full progress-gradient transition-all duration-700" style={{ width: `${value}%` }} />
       </div>
     </div>
   );

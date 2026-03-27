@@ -32,7 +32,7 @@ export default function MeetingIntelligencePage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-sm">
+        <div className="bg-white p-6 rounded-sm hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
           <p className="text-label-sm text-on-surface-variant tracking-[0.15em] mb-2">Annual Coverage</p>
           <div className="flex items-end justify-between">
             <p className="text-[2.5rem] font-bold text-on-surface leading-none">{stats.total_meetings.toLocaleString()}</p>
@@ -40,7 +40,7 @@ export default function MeetingIntelligencePage() {
           </div>
           <p className="text-xs text-on-surface-variant mt-2">Total meetings captured this year</p>
         </div>
-        <div className="bg-white p-6 rounded-sm">
+        <div className="bg-white p-6 rounded-sm hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
           <p className="text-label-sm text-on-surface-variant tracking-[0.15em] mb-2">Pipeline Velocity</p>
           <div className="flex items-end justify-between">
             <p className="text-[2.5rem] font-bold text-on-surface leading-none">{stats.total_docs > 1000 ? `${(stats.total_docs / 1000).toFixed(1)}k` : stats.total_docs.toLocaleString()}</p>
@@ -48,7 +48,7 @@ export default function MeetingIntelligencePage() {
           </div>
           <p className="text-xs text-on-surface-variant mt-2">Documents processed into intelligence</p>
         </div>
-        <div className="bg-white p-6 rounded-sm">
+        <div className="bg-white p-6 rounded-sm hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
           <p className="text-label-sm text-on-surface-variant tracking-[0.15em] mb-2">Intelligence Yield</p>
           <div className="flex items-end justify-between">
             <p className="text-[2.5rem] font-bold text-on-surface leading-none">{stats.completed_docs.toLocaleString()}</p>
@@ -112,7 +112,7 @@ export default function MeetingIntelligencePage() {
 
         {/* Right Panel */}
         <div className="col-span-4 space-y-6">
-          <div>
+          <div className="mt-[50px]">
             <h3 className="text-label-sm text-on-surface-variant tracking-[0.2em] mb-3">Critical Priority</h3>
             <div className="bg-primary-fixed p-5 rounded-sm space-y-4">
               {critical.length > 0 ? critical.map((s, i) => (
@@ -128,7 +128,7 @@ export default function MeetingIntelligencePage() {
                   {i < critical.length - 1 && <div className="h-px bg-on-primary-fixed/10 mt-3" />}
                 </div>
               )) : <p className="text-sm text-on-primary-fixed/70">No critical briefings.</p>}
-              <button className="w-full py-2.5 mt-2 bg-on-primary-fixed/10 text-on-primary-fixed text-xs font-bold uppercase tracking-wider hover:bg-on-primary-fixed/20 transition-colors rounded-sm">Generate Summary Brief</button>
+              <button className="hidden w-full py-2.5 mt-2 bg-on-primary-fixed/10 text-on-primary-fixed text-xs font-bold uppercase tracking-wider hover:bg-on-primary-fixed/20 transition-colors rounded-sm">Generate Summary Brief</button>
             </div>
           </div>
           <div>
