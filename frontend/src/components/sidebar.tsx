@@ -23,11 +23,11 @@ export function Sidebar() {
     <aside className="w-[250px] h-full bg-surface-low flex flex-col shrink-0">
       {/* Brand */}
       <div className="px-6 pt-6 pb-8">
-        <h1 className="text-[1.25rem] font-extrabold tracking-tight text-primary">
+        <h1 className="text-[1.75rem] font-extrabold tracking-tight text-primary leading-none">
           Meridian
         </h1>
-        <p className="text-[0.55rem] uppercase tracking-[0.25em] text-primary-container font-semibold mt-0.5">
-          Canadian Procurement Intelligence
+        <p className="text-[0.65rem] uppercase tracking-[0.25em] text-primary-container font-bold mt-2 leading-relaxed">
+          Canadian Procurement<br />Intelligence
         </p>
       </div>
 
@@ -58,7 +58,7 @@ export function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="px-4 pb-6 space-y-0.5">
+      <div className="hidden px-4 pb-6 space-y-0.5">
         {BOTTOM_ITEMS.map((item) => (
           <Link
             key={item.label}

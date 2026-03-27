@@ -25,6 +25,12 @@ export interface Bid {
   purchasing_representive: { name: string; contact_email: string } | null;
 }
 
+export interface BidStats {
+  total: number;
+  open: number;
+  municipalities: number;
+}
+
 export interface Meeting {
   meeting_title: string;
   meeting_date: string;
@@ -32,6 +38,12 @@ export interface Meeting {
   pdf_url: string;
   city: string;
   year: number;
+}
+
+export interface MeetingStats {
+  total_meetings: number;
+  total_docs: number;
+  completed_docs: number;
 }
 
 export interface Signal {
@@ -53,6 +65,7 @@ export interface Signal {
 export interface SignalStat {
   category: string;
   count: number;
+  high_confidence_count: number;
   avg_score: number;
   avg_confidence: number;
 }
@@ -122,6 +135,14 @@ export function getBids(params?: { city?: string; status?: string; year?: number
   return fetcher<Bid[]>(`/bids?${q}`);
 }
 
+export function getBidStats(params?: { city?: string; status?: string; year?: number }) {
+  const q = new URLSearchParams();
+  if (params?.city) q.set("city", params.city);
+  if (params?.status) q.set("status", params.status);
+  if (params?.year) q.set("year", String(params.year));
+  return fetcher<BidStats>(`/bids/stats?${q}`);
+}
+
 export function getBid(bidNumber: string) {
   return fetcher<Bid>(`/bids/${encodeURIComponent(bidNumber)}`);
 }
@@ -136,6 +157,12 @@ export function getMeetings(params?: { city?: string; document_type?: string; ye
   return fetcher<Meeting[]>(`/meetings?${q}`);
 }
 
+export function getMeetingStats(params?: { year?: number }) {
+  const q = new URLSearchParams();
+  if (params?.year) q.set("year", String(params.year));
+  return fetcher<MeetingStats>(`/meetings/stats?${q}`);
+}
+
 export function getSignals(params?: { city?: string; category?: string; year?: number; min_confidence?: number; min_score?: number; limit?: number; offset?: number }) {
   const q = new URLSearchParams();
   if (params?.city) q.set("city", params.city);
@@ -148,10 +175,11 @@ export function getSignals(params?: { city?: string; category?: string; year?: n
   return fetcher<Signal[]>(`/signals?${q}`);
 }
 
-export function getSignalStats(params?: { city?: string; year?: number }) {
+export function getSignalStats(params?: { city?: string; year?: number; min_confidence?: number }) {
   const q = new URLSearchParams();
   if (params?.city) q.set("city", params.city);
   if (params?.year) q.set("year", String(params.year));
+  if (params?.min_confidence) q.set("min_confidence", String(params.min_confidence));
   return fetcher<SignalStat[]>(`/signals/stats?${q}`);
 }
 

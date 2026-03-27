@@ -23,8 +23,13 @@ export default function SignalsExplorerPage() {
   }, [yearFilter]);
 
   useEffect(() => {
-    getSignalStats({ year: yearFilter }).then(setStats).catch(() => {});
-  }, [yearFilter]);
+    const cityParam = selectedCities.size === 1 ? [...selectedCities][0] : undefined;
+    getSignalStats({ 
+      year: yearFilter,
+      city: cityParam,
+      min_confidence: confidenceThreshold > 0 ? confidenceThreshold : undefined
+    }).then(setStats).catch(() => {});
+  }, [yearFilter, selectedCities, confidenceThreshold]);
 
   const fetchSignals = useCallback(() => {
     setLoading(true);
@@ -48,9 +53,13 @@ export default function SignalsExplorerPage() {
 
   useEffect(() => { fetchSignals(); }, [fetchSignals]);
 
-  const totalSignals = stats.reduce((sum, s) => sum + s.count, 0);
-  const highConfidence = stats.reduce((sum, s) => sum + (s.avg_confidence >= 0.7 ? s.count : 0), 0);
-  const totalValue = stats.reduce((sum, s) => sum + s.count * s.avg_score * 1000000, 0);
+  const filteredStats = selectedCategories.size > 0 
+    ? stats.filter(s => selectedCategories.has(s.category))
+    : stats;
+
+  const totalSignals = filteredStats.reduce((sum, s) => sum + s.count, 0);
+  const highConfidence = filteredStats.reduce((sum, s) => sum + s.high_confidence_count, 0);
+  const totalValue = filteredStats.reduce((sum, s) => sum + s.count * s.avg_score * 1000000, 0);
 
   function toggleSet<T>(set: Set<T>, val: T): Set<T> {
     const next = new Set(set);
@@ -97,101 +106,79 @@ export default function SignalsExplorerPage() {
       </div>
 
       {/* Filter Toggles */}
-      <div className="mb-8 space-y-5">
-        {/* Row 1: Year */}
-        <div className="flex items-center gap-3">
-          <span className="text-[0.6rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant w-[80px] shrink-0">Year</span>
-          <div className="flex flex-wrap gap-1.5">
-            {[undefined, 2024, 2025, 2026].map((y) => (
-              <button
-                key={y ?? "all"}
-                onClick={() => { setYearFilter(y); setPage(1); }}
-                className={`px-3.5 py-1.5 text-[0.65rem] font-bold uppercase tracking-wider transition-all ${
-                  yearFilter === y
-                    ? "command-gradient text-on-primary"
-                    : "bg-white text-on-surface-variant hover:text-primary hover:bg-surface-low"
-                }`}
-              >
-                {y ?? "All"}
-              </button>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Year */}
+          <select
+            value={yearFilter ?? ""}
+            onChange={(e) => {
+              setYearFilter(e.target.value ? parseInt(e.target.value) : undefined);
+              setPage(1);
+            }}
+            className="px-3.5 py-2.5 text-sm font-medium bg-white border border-surface-high rounded-sm text-on-surface outline-none hover:border-primary transition-colors focus:border-primary min-w-[140px]"
+          >
+            <option value="">All Years</option>
+            {[2025, 2026].map((y) => (
+              <option key={y} value={y}>FY {y}</option>
             ))}
-          </div>
-        </div>
+          </select>
 
-        {/* Row 2: Cities */}
-        <div className="flex items-start gap-3">
-          <span className="text-[0.6rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant w-[80px] shrink-0 mt-1.5">City</span>
-          <div className="flex flex-wrap gap-1.5">
+          {/* City */}
+          <select
+            value={selectedCities.size > 0 ? [...selectedCities][0] : ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedCities(val ? new Set([val]) : new Set());
+              setPage(1);
+            }}
+            className="px-3.5 py-2.5 text-sm font-medium bg-white border border-surface-high rounded-sm text-on-surface outline-none hover:border-primary transition-colors focus:border-primary min-w-[160px]"
+          >
+            <option value="">All Cities</option>
             {cities.map((c) => (
-              <button
-                key={c}
-                onClick={() => { setSelectedCities(toggleSet(selectedCities, c)); setPage(1); }}
-                className={`px-3 py-1.5 text-[0.65rem] font-semibold transition-all ${
-                  selectedCities.has(c)
-                    ? "command-gradient text-on-primary"
-                    : "bg-white text-on-surface-variant hover:text-primary hover:bg-surface-low"
-                }`}
-              >
-                {c}
-              </button>
+              <option key={c} value={c}>{c}</option>
             ))}
-            {selectedCities.size > 0 && (
-              <button
-                onClick={() => { setSelectedCities(new Set()); setPage(1); }}
-                className="px-3 py-1.5 text-[0.65rem] font-bold text-primary hover:text-primary-container transition-colors"
-              >
-                Clear ✕
-              </button>
-            )}
-          </div>
-        </div>
+          </select>
 
-        {/* Row 3: Categories */}
-        <div className="flex items-start gap-3">
-          <span className="text-[0.6rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant w-[80px] shrink-0 mt-1.5">Category</span>
-          <div className="flex flex-wrap gap-1.5">
+          {/* Category */}
+          <select
+            value={selectedCategories.size > 0 ? [...selectedCategories][0] : ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedCategories(val ? new Set([val]) : new Set());
+              setPage(1);
+            }}
+            className="px-3.5 py-2.5 text-sm font-medium bg-white border border-surface-high rounded-sm text-on-surface outline-none hover:border-primary transition-colors focus:border-primary min-w-[220px]"
+          >
+            <option value="">All Categories</option>
             {sortedCategories.map((s) => (
-              <button
-                key={s.category}
-                onClick={() => { setSelectedCategories(toggleSet(selectedCategories, s.category)); setPage(1); }}
-                className={`px-3 py-1.5 text-[0.65rem] font-semibold transition-all inline-flex items-center gap-1.5 ${
-                  selectedCategories.has(s.category)
-                    ? "command-gradient text-on-primary"
-                    : "bg-white text-on-surface-variant hover:text-primary hover:bg-surface-low"
-                }`}
-              >
-                {categoryLabels[s.category] || fmt(s.category)}
-                <span className={`text-[0.55rem] ${selectedCategories.has(s.category) ? "text-white/60" : "text-outline"}`}>
-                  {s.count.toLocaleString()}
-                </span>
-              </button>
+              <option key={s.category} value={s.category}>
+                {categoryLabels[s.category] || fmt(s.category)} ({s.count.toLocaleString()})
+              </option>
             ))}
-            {selectedCategories.size > 0 && (
-              <button
-                onClick={() => { setSelectedCategories(new Set()); setPage(1); }}
-                className="px-3 py-1.5 text-[0.65rem] font-bold text-primary hover:text-primary-container transition-colors"
-              >
-                Clear ✕
-              </button>
-            )}
-          </div>
-        </div>
+          </select>
 
-        {/* Row 4: Confidence */}
-        <div className="flex items-center gap-3">
-          <span className="text-[0.6rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant w-[80px] shrink-0">Confidence</span>
-          <div className="flex items-center gap-3 flex-1 max-w-md">
+          {/* Confidence Slider */}
+          <div className="flex items-center gap-3 px-3.5 py-2.5 bg-white border border-surface-high rounded-sm min-w-[200px]">
+            <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Conf ≥</span>
             <input
               type="range"
               min="0"
               max="1"
               step="0.05"
               value={confidenceThreshold}
-              onChange={(e) => { setConfidenceThreshold(parseFloat(e.target.value)); setPage(1); }}
-              className="flex-1"
+              onChange={(e) => {
+                setConfidenceThreshold(parseFloat(e.target.value));
+                setPage(1);
+            }}
+              className="flex-1 w-20"
             />
-            <span className="text-xs font-bold bg-primary text-on-primary px-2.5 py-1 min-w-[52px] text-center">{confidenceThreshold.toFixed(2)}+</span>
+            <span className="text-xs font-bold text-primary">{confidenceThreshold.toFixed(2)}</span>
           </div>
+        </div>
+
+        {/* Results Counter */}
+        <div className="text-sm font-semibold text-on-surface-variant tracking-wide">
+          {totalSignals.toLocaleString()} results
         </div>
       </div>
 
@@ -212,7 +199,7 @@ export default function SignalsExplorerPage() {
               <tr><td colSpan={7} className="px-4 py-12 text-center text-on-surface-variant text-sm">No signals match filters.</td></tr>
             ) : (
               signals.map((s, i) => (
-                <tr key={i} className={`hover:bg-surface-low/30 transition-colors ${i % 2 === 1 ? "bg-surface-low/20" : ""}`}>
+                <tr key={i} className={`hover:bg-surface-high/40 transition-colors ${i % 2 === 1 ? "bg-surface-low/20" : ""}`}>
                   <td className="px-4 py-4 text-sm font-semibold text-on-surface">{fmt(s.signal_type)}</td>
                   <td className="px-4 py-4"><Badge variant="active">{fmt(s.signal_category)}</Badge></td>
                   <td className="px-4 py-4">

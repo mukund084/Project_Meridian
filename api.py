@@ -16,6 +16,9 @@ app = FastAPI(
     version="0.2.0",
 )
 
+import time
+from functools import wraps
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,6 +29,26 @@ app.add_middleware(
 
 
 # ── Helpers ──
+
+def ttl_cache(maxsize: int = 128, ttl: int = 300):
+    cache = {}
+    
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            key = (args, frozenset(kwargs.items()))
+            now = time.time()
+            if key in cache:
+                val, timestamp = cache[key]
+                if now - timestamp < ttl:
+                    return val
+            if len(cache) >= maxsize:
+                cache.clear()
+            val = func(*args, **kwargs)
+            cache[key] = (val, now)
+            return val
+        return wrapper
+    return decorator
 
 def fetch_all(query, page_size: int = 1000) -> list[dict]:
     """Paginate through a Supabase query to bypass the default 1 000-row cap."""
@@ -68,6 +91,30 @@ def list_bids(
     return query.execute().data
 
 
+@app.get("/bids/stats")
+@ttl_cache(ttl=300)
+def bid_stats(
+    city: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    year: Optional[int] = Query(None),
+):
+    sb = get_supabase()
+    q = sb.table("bids").select("city, bid_status")
+    if city:
+        q = q.eq("city", city)
+    if status:
+        q = q.eq("bid_status", status)
+    if year:
+        q = q.eq("year", year)
+    
+    rows = fetch_all(q)
+    total = len(rows)
+    open_count = sum(1 for r in rows if "open" in (r.get("bid_status") or "").lower())
+    municipalities = len(set(r.get("city") for r in rows if r.get("city")))
+    
+    return {"total": total, "open": open_count, "municipalities": municipalities}
+
+
 @app.get("/bids/{bid_number}")
 def get_bid(bid_number: str):
     data = (
@@ -84,6 +131,30 @@ def get_bid(bid_number: str):
 
 
 # ── Meetings ──
+
+@app.get("/meetings/stats")
+@ttl_cache(ttl=300)
+def meeting_stats(year: Optional[int] = Query(None)):
+    sb = get_supabase()
+    meetings_q = sb.table("meetings").select("id")
+    docs_q = sb.table("pdf_documents").select("status")
+    
+    if year:
+        meetings_q = meetings_q.eq("year", year)
+        docs_q = docs_q.eq("year", year)
+        
+    meetings = fetch_all(meetings_q)
+    docs = fetch_all(docs_q)
+    
+    total_meetings = len(meetings)
+    total_docs = len(docs)
+    completed_docs = sum(1 for d in docs if d.get("status") == "completed")
+    
+    return {
+        "total_meetings": total_meetings,
+        "total_docs": total_docs,
+        "completed_docs": completed_docs
+    }
 
 @app.get("/meetings", response_model=list[dict])
 def list_meetings(
@@ -137,6 +208,7 @@ def list_signal_categories():
 
 
 @app.get("/signals/pipeline")
+@ttl_cache(ttl=300)
 def signal_pipeline(city: Optional[str] = Query(None), year: Optional[int] = Query(None)):
     """Signal counts grouped by procurement stage for funnel visualization."""
     query = get_supabase().table("signals").select("procurement_stage, score, confidence")
@@ -191,20 +263,29 @@ def signal_pipeline(city: Optional[str] = Query(None), year: Optional[int] = Que
 
 
 @app.get("/signals/stats")
-def signal_stats(city: Optional[str] = Query(None), year: Optional[int] = Query(None)):
+@ttl_cache(ttl=300)
+def signal_stats(
+    city: Optional[str] = Query(None), 
+    year: Optional[int] = Query(None),
+    min_confidence: float = Query(0.0, ge=0.0, le=1.0)
+):
     query = get_supabase().table("signals").select("signal_category, score, confidence")
     if city:
         query = query.eq("city", city)
     if year:
         query = query.eq("year", year)
+    if min_confidence > 0:
+        query = query.gte("confidence", min_confidence)
     rows = fetch_all(query)
 
     by_category: dict[str, dict] = {}
     for r in rows:
         cat = r.get("signal_category", "unknown")
         if cat not in by_category:
-            by_category[cat] = {"count": 0, "total_score": 0.0, "total_confidence": 0.0}
+            by_category[cat] = {"count": 0, "high_confidence_count": 0, "total_score": 0.0, "total_confidence": 0.0}
         by_category[cat]["count"] += 1
+        if r.get("confidence", 0) >= 0.7:
+            by_category[cat]["high_confidence_count"] += 1
         by_category[cat]["total_score"] += r.get("score", 0)
         by_category[cat]["total_confidence"] += r.get("confidence", 0)
 
@@ -214,6 +295,7 @@ def signal_stats(city: Optional[str] = Query(None), year: Optional[int] = Query(
         stats.append({
             "category": cat,
             "count": n,
+            "high_confidence_count": vals["high_confidence_count"],
             "avg_score": round(vals["total_score"] / n, 3) if n else 0,
             "avg_confidence": round(vals["total_confidence"] / n, 3) if n else 0,
         })
@@ -242,6 +324,7 @@ def list_pdf_documents(
 # ── Cities ──
 
 @app.get("/cities")
+@ttl_cache(ttl=300)
 def list_cities(year: Optional[int] = Query(None)):
     sb = get_supabase()
     bids_q = sb.table("bids").select("city")
@@ -258,6 +341,7 @@ def list_cities(year: Optional[int] = Query(None)):
 # ── Accounts (City/Agency Profiles) ──
 
 @app.get("/accounts")
+@ttl_cache(ttl=300)
 def list_accounts(year: Optional[int] = Query(None, description="Filter by year")):
     """Aggregated stats per city across all tables."""
     sb = get_supabase()

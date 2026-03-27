@@ -2,22 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/badge";
-import { getMeetings, getSignals, getPDFDocuments, type Meeting, type Signal, type PDFDoc } from "@/lib/api";
+import { getMeetings, getSignals, getPDFDocuments, getMeetingStats, type Meeting, type Signal, type PDFDoc } from "@/lib/api";
 
 export default function MeetingIntelligencePage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [critical, setCritical] = useState<Signal[]>([]);
   const [pipeline, setPipeline] = useState<PDFDoc[]>([]);
+  const [stats, setStats] = useState({ total_meetings: 0, total_docs: 0, completed_docs: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getMeetings({ limit: 20 }), getSignals({ limit: 3, min_score: 0.7 }), getPDFDocuments({ limit: 10 })])
-      .then(([m, s, d]) => { setMeetings(m); setCritical(s); setPipeline(d); })
+    Promise.all([
+      getMeetings({ limit: 20 }), 
+      getSignals({ limit: 3, min_score: 0.7 }), 
+      getPDFDocuments({ limit: 40 }),
+      getMeetingStats()
+    ])
+      .then(([m, s, d, st]) => { setMeetings(m); setCritical(s); setPipeline(d); setStats(st); })
       .catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const totalDocs = pipeline.length;
-  const completedDocs = pipeline.filter((d) => d.status === "completed").length;
   const activePipe = pipeline.filter((d) => ["pending", "downloading", "extracting_text", "analyzing"].includes(d.status));
 
   if (loading) return <div className="p-10"><div className="text-on-surface-variant text-sm">Loading...</div></div>;
@@ -31,7 +35,7 @@ export default function MeetingIntelligencePage() {
         <div className="bg-white p-6 rounded-sm">
           <p className="text-label-sm text-on-surface-variant tracking-[0.15em] mb-2">Annual Coverage</p>
           <div className="flex items-end justify-between">
-            <p className="text-[2.5rem] font-bold text-on-surface leading-none">{meetings.length.toLocaleString()}</p>
+            <p className="text-[2.5rem] font-bold text-on-surface leading-none">{stats.total_meetings.toLocaleString()}</p>
             <Badge variant="active">+12% YoY</Badge>
           </div>
           <p className="text-xs text-on-surface-variant mt-2">Total meetings captured this year</p>
@@ -39,7 +43,7 @@ export default function MeetingIntelligencePage() {
         <div className="bg-white p-6 rounded-sm">
           <p className="text-label-sm text-on-surface-variant tracking-[0.15em] mb-2">Pipeline Velocity</p>
           <div className="flex items-end justify-between">
-            <p className="text-[2.5rem] font-bold text-on-surface leading-none">{totalDocs > 1000 ? `${(totalDocs / 1000).toFixed(1)}k` : totalDocs}</p>
+            <p className="text-[2.5rem] font-bold text-on-surface leading-none">{stats.total_docs > 1000 ? `${(stats.total_docs / 1000).toFixed(1)}k` : stats.total_docs.toLocaleString()}</p>
             <Badge variant="pending">Processing</Badge>
           </div>
           <p className="text-xs text-on-surface-variant mt-2">Documents processed into intelligence</p>
@@ -47,8 +51,8 @@ export default function MeetingIntelligencePage() {
         <div className="bg-white p-6 rounded-sm">
           <p className="text-label-sm text-on-surface-variant tracking-[0.15em] mb-2">Intelligence Yield</p>
           <div className="flex items-end justify-between">
-            <p className="text-[2.5rem] font-bold text-on-surface leading-none">{completedDocs.toLocaleString()}</p>
-            <div className="w-20 h-2 bg-surface-high rounded-sm"><div className="h-full progress-gradient rounded-sm" style={{ width: `${totalDocs > 0 ? (completedDocs / totalDocs) * 100 : 0}%` }} /></div>
+            <p className="text-[2.5rem] font-bold text-on-surface leading-none">{stats.completed_docs.toLocaleString()}</p>
+            <div className="w-20 h-2 bg-surface-high rounded-sm"><div className="h-full progress-gradient rounded-sm" style={{ width: `${stats.total_docs > 0 ? (stats.completed_docs / stats.total_docs) * 100 : 0}%` }} /></div>
           </div>
           <p className="text-xs text-on-surface-variant mt-2">Signals extracted from transcripts</p>
         </div>
@@ -131,8 +135,8 @@ export default function MeetingIntelligencePage() {
             <h3 className="text-label-sm text-on-surface-variant tracking-[0.2em] mb-3">Pipeline Health</h3>
             <div className="bg-white p-5 rounded-sm">
               <p className="text-xs font-bold uppercase tracking-wider text-on-surface mb-3">Data Ingestion</p>
-              <div className="h-1.5 bg-surface-high rounded-sm"><div className="h-full progress-gradient rounded-sm" style={{ width: `${totalDocs > 0 ? (completedDocs / totalDocs) * 100 : 0}%` }} /></div>
-              <p className="text-xs text-on-surface-variant mt-2">{completedDocs} of {totalDocs} documents processed</p>
+              <div className="h-1.5 bg-surface-high rounded-sm"><div className="h-full progress-gradient rounded-sm" style={{ width: `${stats.total_docs > 0 ? (stats.completed_docs / stats.total_docs) * 100 : 0}%` }} /></div>
+              <p className="text-xs text-on-surface-variant mt-2">{stats.completed_docs.toLocaleString()} of {stats.total_docs.toLocaleString()} documents processed</p>
             </div>
           </div>
         </div>
