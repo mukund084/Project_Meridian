@@ -23,23 +23,23 @@ export default function AccountDetailPage() {
   const s = data.summary;
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8 pt-16 md:pt-8">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
         <Link href="/accounts" className="text-xs text-on-surface-variant hover:text-primary transition-colors">&larr; Accounts</Link>
       </div>
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex items-start justify-between mb-6 md:mb-8">
         <div>
-          <h1 className="text-[2rem] font-bold text-on-surface">{data.city}</h1>
-          <p className="text-sm text-on-surface-variant">Municipality Account Profile</p>
+          <h1 className="text-[1.5rem] md:text-[2rem] font-bold text-on-surface">{data.city}</h1>
+          <p className="text-xs md:text-sm text-on-surface-variant">Municipality Account Profile</p>
         </div>
-        <div className="w-14 h-14 command-gradient flex items-center justify-center rounded-sm">
-          <span className="text-on-primary font-bold text-lg">{(s.avg_score * 100).toFixed(0)}</span>
+        <div className="w-12 h-12 md:w-14 md:h-14 command-gradient flex items-center justify-center rounded-sm">
+          <span className="text-on-primary font-bold text-base md:text-lg">{(s.avg_score * 100).toFixed(0)}</span>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
         {[
           { label: "Bids", value: s.total_bids },
           { label: "Open Bids", value: s.open_bids },
@@ -55,12 +55,12 @@ export default function AccountDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 mb-6">
+      <div className="flex gap-0 mb-6 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         {(["signals", "bids", "meetings", "contacts"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors rounded-sm ${
+            className={`px-3 md:px-5 py-2.5 text-[0.65rem] md:text-xs font-bold uppercase tracking-wider transition-colors rounded-sm whitespace-nowrap shrink-0 ${
               activeTab === tab ? "command-gradient text-on-primary" : "bg-surface-low text-on-surface-variant hover:text-primary"
             }`}
           >
@@ -70,7 +70,7 @@ export default function AccountDetailPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white rounded-sm">
+      <div className="bg-white rounded-sm overflow-x-auto">
         {activeTab === "signals" && (
           <table className="w-full text-left">
             <thead><tr className="bg-surface-low/50">
@@ -137,7 +137,7 @@ export default function AccountDetailPage() {
             {data.contacts.length === 0 ? (
               <p className="text-sm text-on-surface-variant">No contacts found for this municipality yet.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 {data.contacts.map((c, i) => (
                   <div key={i} className="bg-surface-low p-4 rounded-sm flex items-center gap-4">
                     <div className="w-10 h-10 command-gradient flex items-center justify-center rounded-sm shrink-0">

@@ -211,22 +211,22 @@ export default function DashboardPage() {
                   return (
                     <div key={stage.stage} className="group">
                       <div className="flex items-center gap-4">
-                        <div className="w-[140px] shrink-0 text-right">
-                          <span className={`text-xs font-medium ${isHot ? "text-primary font-bold" : "text-on-surface-variant"}`}>
+                        <div className="w-[80px] md:w-[140px] shrink-0 text-right">
+                          <span className={`text-[0.65rem] md:text-xs font-medium ${isHot ? "text-primary font-bold" : "text-on-surface-variant"}`}>
                             {stage.label}
                           </span>
                         </div>
-                        <div className="flex-1 h-8 bg-surface-low relative overflow-hidden">
+                        <div className="flex-1 h-7 md:h-8 bg-surface-low relative overflow-hidden">
                           <div
-                            className={`h-full transition-all duration-700 ease-out flex items-center px-3 ${isHot ? "command-gradient" : "bg-primary-fixed"}`}
+                            className={`h-full transition-all duration-700 ease-out flex items-center px-2 md:px-3 ${isHot ? "command-gradient" : "bg-primary-fixed"}`}
                             style={{ width: `${width}%` }}
                           >
-                            <span className={`text-xs font-bold ${isHot ? "text-white" : "text-on-primary-fixed"}`}>
+                            <span className={`text-[0.65rem] md:text-xs font-bold ${isHot ? "text-white" : "text-on-primary-fixed"}`}>
                               {stage.count}
                             </span>
                           </div>
                         </div>
-                        <div className="w-[60px] shrink-0">
+                        <div className="w-[45px] md:w-[60px] shrink-0 hidden sm:block">
                           <span className="text-[0.6rem] text-on-surface-variant">
                             {stage.avg_confidence > 0 ? `${(stage.avg_confidence * 100).toFixed(0)}% conf` : ""}
                           </span>
@@ -241,14 +241,14 @@ export default function DashboardPage() {
             )}
 
             {/* Pipeline legend */}
-            <div className="flex items-center gap-6 mt-6 pt-4" style={{ borderTop: "1px solid rgba(200,197,188,0.3)" }}>
+            <div className="flex flex-wrap items-center gap-3 md:gap-6 mt-6 pt-4" style={{ borderTop: "1px solid rgba(200,197,188,0.3)" }}>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 command-gradient" />
-                <span className="text-[0.6rem] text-on-surface-variant uppercase tracking-wider">Hot Stages (Near RFP)</span>
+                <span className="text-[0.55rem] md:text-[0.6rem] text-on-surface-variant uppercase tracking-wider">Hot Stages</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-primary-fixed" />
-                <span className="text-[0.6rem] text-on-surface-variant uppercase tracking-wider">Other Stages</span>
+                <span className="text-[0.55rem] md:text-[0.6rem] text-on-surface-variant uppercase tracking-wider">Other Stages</span>
               </div>
             </div>
           </div>
@@ -349,21 +349,30 @@ export default function DashboardPage() {
               href={m.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-4 px-5 py-4 hover:bg-surface-high/40 transition-colors group"
+              className="flex items-start sm:items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 hover:bg-surface-high/40 transition-colors group border-b border-surface-high/50 last:border-b-0"
             >
-              <div className="w-9 h-9 bg-surface-low flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-surface-low flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M4 1h6l4 4v10H4V1z" stroke="#8a8a80" strokeWidth="1.2" />
                   <path d="M10 1v4h4" stroke="#8a8a80" strokeWidth="1.2" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors truncate">{m.meeting_title}</p>
+                <p className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors line-clamp-2 sm:truncate">{m.meeting_title}</p>
                 <p className="text-xs text-on-surface-variant mt-0.5">{m.city} &middot; {m.meeting_date}</p>
+                {/* Badge inline on mobile */}
+                <div className="mt-1.5 sm:hidden">
+                  <Badge variant={m.document_type.toLowerCase() === "minutes" ? "active" : "muted"}>
+                    {m.document_type}
+                  </Badge>
+                </div>
               </div>
-              <Badge variant={m.document_type.toLowerCase() === "minutes" ? "active" : "muted"}>
-                {m.document_type}
-              </Badge>
+              {/* Badge on right for desktop */}
+              <div className="hidden sm:block shrink-0">
+                <Badge variant={m.document_type.toLowerCase() === "minutes" ? "active" : "muted"}>
+                  {m.document_type}
+                </Badge>
+              </div>
             </a>
           ))}
         </div>
