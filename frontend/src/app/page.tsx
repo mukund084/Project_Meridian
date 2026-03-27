@@ -4,13 +4,12 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/badge";
 import {
-  getBids, getSignals, getSignalStats, getMeetings, getPDFDocuments,
-  getSignalPipeline, getAccounts, getCities,
-  type Bid, type Signal, type SignalStat, type Meeting, type PipelineStage, type Account,
+  getSignals, getSignalStats, getMeetings, getPDFDocuments,
+  getSignalPipeline, getAccounts, getCities, getBidsClosingSoon,
+  type Signal, type SignalStat, type Meeting, type PipelineStage, type Account, type Bid,
 } from "@/lib/api";
 
 export default function DashboardPage() {
-  const [bids, setBids] = useState<Bid[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [stats, setStats] = useState<SignalStat[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -18,15 +17,17 @@ export default function DashboardPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [docStats, setDocStats] = useState({ total: 0, pending: 0 });
   const [cityList, setCityList] = useState<string[]>([]);
+  const [closingSoon, setClosingSoon] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     const y = selectedYear;
     Promise.all([
-      getBids({ limit: 20, year: y }),
       getSignals({ limit: 10, min_score: 0.5, year: y }),
       getSignalStats({ year: y }),
       getMeetings({ limit: 5, year: y }),
@@ -34,9 +35,9 @@ export default function DashboardPage() {
       getSignalPipeline({ year: y }),
       getAccounts({ year: y }),
       getCities({ year: y }),
+      getBidsClosingSoon({ days: 30, limit: 5 }).catch(() => [] as Bid[]),
     ])
-      .then(([b, s, st, m, docs, pipe, accts, cities]) => {
-        setBids(b);
+      .then(([s, st, m, docs, pipe, accts, cities, closing]) => {
         setSignals(s);
         setStats(st);
         setMeetings(m);
@@ -45,8 +46,9 @@ export default function DashboardPage() {
         setPipeline(pipe);
         setAccounts(accts);
         setCityList(cities);
+        setClosingSoon(closing);
       })
-      .catch(() => {})
+      .catch((err) => setError(err?.message || "Failed to load dashboard data. Is the API running?"))
       .finally(() => setLoading(false));
   }, [selectedYear]);
 
@@ -57,11 +59,21 @@ export default function DashboardPage() {
   const totalMeetings = accounts.reduce((sum, a) => sum + a.total_meetings, 0);
   const totalCities = cityList.length;
 
-  if (loading) {
+  const hasData = accounts.length > 0;
+
+  if (loading && !hasData) {
     return (
       <div className="p-10 flex items-center gap-3">
         <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
         <span className="text-on-surface-variant text-sm">Loading intelligence...</span>
+      </div>
+    );
+  }
+
+  if (error && !hasData) {
+    return (
+      <div className="p-10">
+        <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-sm">{error}</p>
       </div>
     );
   }
@@ -85,7 +97,13 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="p-8">
+    <div className={`p-4 md:p-8 pt-16 md:pt-8 ${loading ? "opacity-60 pointer-events-none" : ""} transition-opacity duration-200`}>
+      {loading && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-white px-4 py-2 shadow-lg">
+          <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+          <span className="text-xs text-on-surface-variant">Updating...</span>
+        </div>
+      )}
       {/* ── Header ── */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -125,10 +143,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── KPI Row ── */}
-      <div className="grid grid-cols-4 gap-5 mb-12">
-        <KPICard icon="signals" label="Signals" value={totalSignals.toLocaleString()} change={`${stats.length} categories`} />
-        <KPICard icon="bids" label="Bids" value={totalBids.toLocaleString()} change={`${totalOpenBids} open`} positive />
-        <KPICard icon="meetings" label="Meetings" value={totalMeetings.toLocaleString()} change={`${totalCities} municipalities`} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-8 md:mb-12">
+        <Link href="/signals"><KPICard icon="signals" label="Signals" value={totalSignals.toLocaleString()} change={`${stats.length} categories`} /></Link>
+        <Link href="/bids"><KPICard icon="bids" label="Bids" value={totalBids.toLocaleString()} change={`${totalOpenBids} open`} positive /></Link>
+        <Link href="/meetings"><KPICard icon="meetings" label="Meetings" value={totalMeetings.toLocaleString()} change={`${totalCities} municipalities`} /></Link>
         <KPICard icon="docs" label="Documents" value={docStats.total.toLocaleString()} change={`${docStats.pending} pending`} />
       </div>
 
@@ -170,7 +188,7 @@ export default function DashboardPage() {
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {dailyLeads.map((s, i) => (
-                <div key={i} className="min-w-[350px] max-w-[350px] snap-start shrink-0">
+                <div key={i} className="min-w-[280px] max-w-[280px] md:min-w-[350px] md:max-w-[350px] snap-start shrink-0">
                   <DailyLeadCard signal={s} />
                 </div>
               ))}
@@ -179,10 +197,53 @@ export default function DashboardPage() {
         </section>
       )}
 
+      {/* ── Bids Closing Soon ── */}
+      {closingSoon.length > 0 && (
+        <section className="mb-8 md:mb-12">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-[1.15rem] font-bold text-on-surface">Bids Closing Soon</h2>
+              <p className="text-xs text-on-surface-variant mt-0.5">Open bids with approaching deadlines — act now</p>
+            </div>
+            <Link href="/bids" className="text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant hover:text-primary transition-colors">
+              View All Bids &rarr;
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {closingSoon.map((b, i) => (
+              <a
+                key={i}
+                href={b.bid_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white p-5 hover:shadow-[0px_18px_40px_rgba(160,65,0,0.12)] transition-all duration-200 group/bid"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+                    <span className="text-[0.6rem] font-bold uppercase tracking-[0.2em] text-primary">Closing Soon</span>
+                  </div>
+                  {b.days_left && (
+                    <span className="text-xs font-bold text-primary bg-primary-fixed px-2 py-0.5 rounded-sm">{b.days_left}</span>
+                  )}
+                </div>
+                <h3 className="text-sm font-bold text-on-surface leading-snug mb-2 line-clamp-2 group-hover/bid:text-primary transition-colors">
+                  {b.bid_name}
+                </h3>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-on-surface-variant">{b.city}</span>
+                  <span className="text-[0.6rem] font-bold uppercase tracking-wider text-on-surface-variant">{b.bid_closing_date?.split(",")[0] || ""}</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Two-column: Pipeline + Top Cities ── */}
-      <div className="grid grid-cols-12 gap-8 mb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 mb-8 md:mb-12">
         {/* Procurement Pipeline Funnel */}
-        <section className="col-span-7">
+        <section className="lg:col-span-7">
           <div className="mb-5">
             <h2 className="text-[1.15rem] font-bold text-on-surface">Procurement Pipeline</h2>
             <p className="text-xs text-on-surface-variant mt-0.5">Signal distribution across procurement lifecycle stages</p>
@@ -240,7 +301,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Right Stack: Top Cities + Pipeline Health */}
-        <div className="col-span-5 flex flex-col gap-12">
+        <div className="lg:col-span-5 flex flex-col gap-8 md:gap-12">
           {/* Top Cities by Activity */}
           <section>
             <div className="mb-5">
@@ -388,13 +449,13 @@ function KPICard({ icon, label, value, change, positive }: {
   };
 
   return (
-    <div className="bg-white p-5 hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-shadow duration-200">
+    <div className="bg-white p-6 hover:shadow-[0px_18px_40px_rgba(11,28,48,0.08)] transition-all duration-200 cursor-pointer group/kpi">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.15em] text-on-surface-variant">{label}</p>
-        <span className="text-outline/60">{icons[icon]}</span>
+        <p className="text-[0.75rem] font-bold uppercase tracking-[0.15em] text-on-surface group-hover/kpi:text-primary transition-colors">{label}</p>
+        <span className="text-on-surface/40">{icons[icon]}</span>
       </div>
-      <p className="text-[2.2rem] font-bold text-on-surface leading-none tracking-tight">{value}</p>
-      <p className={`text-xs mt-2 ${positive ? "text-primary-container font-semibold" : "text-on-surface-variant"}`}>{change}</p>
+      <p className="text-[1.8rem] md:text-[2.5rem] font-extrabold text-on-surface leading-none tracking-tight">{value}</p>
+      <p className={`text-sm font-semibold mt-2.5 ${positive ? "text-primary" : "text-on-surface/50"}`}>{change}</p>
     </div>
   );
 }

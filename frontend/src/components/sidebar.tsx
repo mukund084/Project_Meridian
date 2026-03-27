@@ -2,79 +2,123 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: DashboardIcon },
   { href: "/signals", label: "Signals Explorer", icon: SignalsIcon },
   { href: "/bids", label: "Bids Explorer", icon: BidsIcon },
-  { href: "/meetings", label: "Meeting\nIntelligence", icon: MeetingsIcon },
+  { href: "/meetings", label: "Meeting Intelligence", icon: MeetingsIcon },
   { href: "/accounts", label: "Accounts", icon: AccountsIcon },
-];
-
-const BOTTOM_ITEMS = [
-  { href: "#", label: "Help Center", icon: HelpIcon },
-  { href: "#", label: "Log Out", icon: LogOutIcon },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Close on escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  // Prevent body scroll when menu is open on mobile
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
 
   return (
-    <aside className="w-[250px] h-full bg-surface-low flex flex-col shrink-0">
-      {/* Brand */}
-      <div className="px-6 pt-6 pb-8">
-        <h1 className="text-[1.75rem] font-extrabold tracking-tight text-primary leading-none">
-          Meridian
-        </h1>
-        <p className="text-[0.65rem] uppercase tracking-[0.25em] text-primary-container font-bold mt-2 leading-relaxed">
-          Canadian Procurement<br />Intelligence
-        </p>
-      </div>
+    <>
+      {/* Mobile hamburger button — fixed top-left */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-4 left-4 z-50 md:hidden w-10 h-10 bg-white shadow-md flex items-center justify-center rounded-sm"
+        aria-label="Open menu"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M3 5h14M3 10h14M3 15h14" stroke="#1c1c19" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
 
-      {/* Main Nav */}
-      <nav className="flex-1 px-4 space-y-0.5">
-        {NAV_ITEMS.map((item) => {
-          const active = item.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(item.href);
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`
-                flex items-center gap-3 px-3 py-2.5 text-[0.82rem] font-medium transition-colors
-                ${active
-                  ? "bg-primary-fixed/30 text-primary font-semibold"
-                  : "text-on-surface-variant hover:text-primary hover:bg-surface-low"
-                }
-              `}
-            >
-              <item.icon active={active} />
-              <span className="whitespace-pre-line leading-tight">{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Sidebar */}
+      <aside className={`
+        fixed md:relative z-50 md:z-auto
+        w-[250px] h-full bg-surface-low flex flex-col shrink-0
+        transition-transform duration-200 ease-out
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}>
+        {/* Close button — mobile only */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-4 right-4 md:hidden w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-on-surface"
+          aria-label="Close menu"
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
 
-      {/* Bottom */}
-      <div className="hidden px-4 pb-6 space-y-0.5">
-        {BOTTOM_ITEMS.map((item) => (
-          <Link
-            key={item.label}
-            href={item.href}
-            className="flex items-center gap-3 px-3 py-2.5 text-[0.82rem] text-on-surface-variant hover:text-primary transition-colors"
-          >
-            <item.icon active={false} />
-            {item.label}
-          </Link>
-        ))}
-      </div>
-    </aside>
+        {/* Brand */}
+        <div className="px-6 pt-7 pb-8">
+          <h1 className="text-[2.1rem] font-extrabold tracking-tight text-primary leading-none">
+            Meridian
+          </h1>
+          <div className="w-8 h-[3px] bg-primary/40 rounded-full mt-3 mb-2.5" />
+          <p className="text-[0.7rem] font-semibold text-on-surface/60 tracking-[0.08em] leading-snug">
+            Canadian Procurement<br />Intelligence Platform
+          </p>
+        </div>
+
+        {/* Main Nav */}
+        <nav className="flex-1 px-4 space-y-0.5">
+          {NAV_ITEMS.map((item) => {
+            const active = item.href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`
+                  flex items-center gap-3 px-3 py-2.5 text-[0.82rem] font-medium transition-colors
+                  ${active
+                    ? "bg-primary-fixed/30 text-primary font-semibold"
+                    : "text-on-surface hover:text-primary hover:bg-surface-low"
+                  }
+                `}
+              >
+                <item.icon active={active} />
+                <span className="leading-tight">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+    </>
   );
 }
 
-// ── Icons (green theme) ──
+// ── Icons ──
 
 function DashboardIcon({ active }: { active: boolean }) {
   const c = active ? "#a04100" : "#8a8a80";
@@ -125,56 +169,6 @@ function AccountsIcon({ active }: { active: boolean }) {
       <rect x="2" y="4" width="16" height="12" rx="1" stroke={c} strokeWidth="1.5" />
       <path d="M2 8h16" stroke={c} strokeWidth="1.5" />
       <path d="M7 4V2M13 4V2" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ContractsIcon({ active }: { active: boolean }) {
-  const c = active ? "#a04100" : "#8a8a80";
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="7" stroke={c} strokeWidth="1.5" />
-      <path d="M10 6v4l3 2" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function DocsIcon({ active }: { active: boolean }) {
-  const c = active ? "#a04100" : "#8a8a80";
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M5 2h7l5 5v11H5V2z" stroke={c} strokeWidth="1.5" />
-      <path d="M12 2v5h5" stroke={c} strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function SettingsIcon({ active }: { active: boolean }) {
-  const c = active ? "#a04100" : "#8a8a80";
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="3" stroke={c} strokeWidth="1.5" />
-      <path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.5 3.5l1.4 1.4M15.1 15.1l1.4 1.4M16.5 3.5l-1.4 1.4M4.9 15.1l-1.4 1.4" stroke={c} strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function HelpIcon({ active }: { active: boolean }) {
-  const c = active ? "#a04100" : "#8a8a80";
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="8" stroke={c} strokeWidth="1.5" />
-      <path d="M7.5 7.5a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3.5M10 15.5v.01" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function LogOutIcon({ active }: { active: boolean }) {
-  const c = active ? "#a04100" : "#8a8a80";
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M7 2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7" stroke={c} strokeWidth="1.5" />
-      <path d="M11 10H2M5 7l-3 3 3 3" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

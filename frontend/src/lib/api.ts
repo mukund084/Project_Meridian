@@ -8,6 +8,17 @@ async function fetcher<T>(path: string): Promise<T> {
 
 // ── Types ──
 
+export interface BidSubmission {
+  company_name: string;
+  contact_address: string;
+  result: string | null;
+}
+
+export interface PlanTaker {
+  company_name: string;
+  contact_address: string;
+}
+
 export interface Bid {
   bid_name: string;
   bid_status: string;
@@ -23,6 +34,8 @@ export interface Bid {
   description: string | null;
   categories: string[] | null;
   purchasing_representive: { name: string; contact_email: string } | null;
+  bids_submitted: BidSubmission[] | null;
+  plan_takers: PlanTaker[] | null;
 }
 
 export interface BidStats {
@@ -231,10 +244,10 @@ export function globalSearch(query: string) {
   return fetcher<SearchResult[]>(`/search?q=${encodeURIComponent(query)}`);
 }
 
-export function getExpiringContracts(params?: { days?: number; city?: string; limit?: number }) {
+export function getBidsClosingSoon(params?: { days?: number; city?: string; limit?: number }) {
   const q = new URLSearchParams();
   if (params?.days) q.set("days", String(params.days));
   if (params?.city) q.set("city", params.city);
   if (params?.limit) q.set("limit", String(params.limit));
-  return fetcher<Bid[]>(`/contracts/expiring?${q}`);
+  return fetcher<Bid[]>(`/bids/closing-soon?${q}`);
 }

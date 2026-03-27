@@ -490,22 +490,56 @@ def global_search(
     return results
 
 
-# ── Contracts Expiring ──
+# ── Bids Closing Soon ──
 
-@app.get("/contracts/expiring")
-def expiring_contracts(
-    days: int = Query(90, ge=1, le=365, description="Contracts expiring within N days"),
+def _parse_bid_date(raw: str) -> "datetime | None":
+    """Parse human-readable bid closing dates like 'Fri Apr 10, 2026 2:00 PM (EDT)'."""
+    from datetime import datetime
+    import re
+    if not raw:
+        return None
+    cleaned = re.sub(r"\(.*?\)", "", raw).strip()
+    cleaned = re.sub(r"^[A-Za-z]{3}\s+", "", cleaned)
+    for fmt in (
+        "%b %d, %Y %I:%M:%S %p",
+        "%b %d, %Y %I:%M %p",
+        "%B %d, %Y %I:%M:%S %p",
+        "%B %d, %Y %I:%M %p",
+        "%b %d, %Y",
+        "%Y-%m-%d",
+    ):
+        try:
+            return datetime.strptime(cleaned, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+@app.get("/bids/closing-soon")
+def bids_closing_soon(
+    days: int = Query(90, ge=1, le=365, description="Bids closing within N days"),
     city: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
 ):
-    """Bids with closing dates in the near future — proxy for contract expiration."""
+    """Open bids with closing dates in the near future."""
     from datetime import datetime, timedelta
-    cutoff = (datetime.utcnow() + timedelta(days=days)).strftime("%Y-%m-%d")
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    now = datetime.utcnow()
+    cutoff = now + timedelta(days=days)
 
-    query = get_supabase().table("bids").select("*")
-    query = query.gte("bid_closing_date", today).lte("bid_closing_date", cutoff)
+    query = get_supabase().table("bids").select("*").eq("bid_status", "Open")
     if city:
         query = query.eq("city", city)
-    query = query.order("bid_closing_date", desc=False).limit(limit)
-    return query.execute().data
+    rows = fetch_all(query)
+
+    results = []
+    for row in rows:
+        parsed = _parse_bid_date(row.get("bid_closing_date", ""))
+        if parsed and now <= parsed <= cutoff:
+            row["_parsed_date"] = parsed.isoformat()
+            results.append(row)
+
+    results.sort(key=lambda r: r["_parsed_date"])
+    for r in results:
+        r.pop("_parsed_date", None)
+
+    return results[:limit]
