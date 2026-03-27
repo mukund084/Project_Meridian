@@ -1,5 +1,7 @@
 # Meridian — Canadian Municipal Procurement Intelligence
 
+**Live Demo:** [meridian-democom-mukund084s-projects.vercel.app](https://meridian-democom-mukund084s-projects.vercel.app/)
+
 Meridian is a pre-RFP procurement intelligence platform that crawls Canadian municipal websites (GTA region), extracts actionable signals from council meetings, budgets, and tender listings, and surfaces them through a modern dashboard — helping vendors identify opportunities before formal RFPs are published.
 
 ## What It Does
