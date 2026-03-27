@@ -70,12 +70,23 @@ cp .env.example .env
 ```
 
 ```env
+APP_ENV=development
+ENABLE_API_DOCS=true
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-supabase-key
 XAI_API_KEY=xai-your-key
 PDF_DOWNLOAD_DIR=storage/pdfs
 PDF_TEXT_CACHE_DIR=storage/text_cache
+PDF_ALLOWED_HOSTS=escribemeetings.com
+PDF_REDIRECT_LIMIT=5
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+ALLOWED_HOSTS=localhost,127.0.0.1,::1
+RATE_LIMIT_REQUESTS=120
+EXPENSIVE_RATE_LIMIT_REQUESTS=20
+RATE_LIMIT_WINDOW_SECONDS=60
 ```
+
+Keep `.env` server-only. Do not commit real Supabase or XAI credentials. In production, set `APP_ENV=production`, use your real API hostname in `ALLOWED_HOSTS`, and leave `ENABLE_API_DOCS` unset or `false` unless you explicitly want docs exposed.
 
 ### 2. Backend
 
@@ -94,7 +105,7 @@ playwright install
 uvicorn api:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API will be available at `http://localhost:8000`. Check `http://localhost:8000/health` to verify.
+The API will be available at `http://localhost:8000`. Check `http://localhost:8000/health` to verify. If you access it through a different hostname in development, add that hostname to `ALLOWED_HOSTS`.
 
 ### 3. Frontend
 
@@ -106,7 +117,7 @@ npm install
 
 # Copy environment config
 cp .env.example .env
-# Ensure API_BASE_URL=http://localhost:8000
+# Ensure NEXT_PUBLIC_API_URL=http://localhost:8000
 
 # Start dev server
 npm run dev

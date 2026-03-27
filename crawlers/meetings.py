@@ -1,10 +1,12 @@
 import asyncio
 import re
+from datetime import timedelta
+
 from crawlee.configuration import Configuration
 from crawlee.crawlers import PlaywrightCrawler, PlaywrightCrawlingContext
-from models.meetings import Document
 from db.upsert import upsert_meeting
-from datetime import timedelta
+from models.meetings import Document
+from network_security import resolve_pdf_url
 
 
 async def find_meetings(base_url: str, year: int, city: str = "Markham") -> list[dict]:
@@ -93,10 +95,8 @@ async def find_meetings(base_url: str, year: int, city: str = "Markham") -> list
                     link = item.locator("a.link[href*='FileStream.ashx']").nth(k)
                     href = await link.get_attribute("href")
                     
-                    if not href or href in seen_pdf_urls:
+                    if not href:
                         continue
-                        
-                    seen_pdf_urls.add(href)
                     
                     aria = await link.get_attribute("aria-label") or ""
                     document_type = ""
@@ -109,14 +109,19 @@ async def find_meetings(base_url: str, year: int, city: str = "Markham") -> list
                     print(f"  📄 {meeting_title} | {meeting_date} | {document_type}")
 
                     try:
+                        pdf_url = resolve_pdf_url(base_url, href)
+                        if pdf_url in seen_pdf_urls:
+                            continue
+
                         doc = Document(
                             city=city,
                             year=year,
                             meeting_title=meeting_title,
                             meeting_date=meeting_date,
                             document_type=document_type,
-                            pdf_url=f"{base_url}/{href}" if not href.startswith("http") else href,
+                            pdf_url=pdf_url,
                         )
+                        seen_pdf_urls.add(pdf_url)
                         collected.append(doc.model_dump(mode="json"))
                         await context.push_data(doc.model_dump(mode="json"))
                         upsert_meeting(doc)

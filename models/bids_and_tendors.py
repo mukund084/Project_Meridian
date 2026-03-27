@@ -1,16 +1,20 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BidsSubmission(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     company_name: str
-    contact_address: str
+    contact_address: str = Field(alias="contact_addres")
     result: Optional[str] = None
 
 
 class PlanTakers(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     company_name: str
-    contact_address: str
+    contact_address: str = Field(alias="contact_addres")
 
 
 class PurchasingRepresentative(BaseModel):
@@ -20,8 +24,8 @@ class PurchasingRepresentative(BaseModel):
 
 class BidsAndTenders(BaseModel):
     # Metadata (set by crawler, not scraped)
-    city: str = ""
-    year: int = 0
+    city: Optional[str] = None
+    year: Optional[int] = None
 
     # Core fields (required)
     bid_name: str

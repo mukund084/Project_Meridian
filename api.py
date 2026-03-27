@@ -1,31 +1,192 @@
 from __future__ import annotations
 
+import os
+import threading
+import time
+from collections import defaultdict, deque
+from functools import wraps
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 
 from db.supbase_client import get_supabase
 from models.bids_and_tendors import BidsAndTenders
 from models.meetings import Document
 from models.signals import Signal, SignalCategory, PDFDocument
 
+
+def _split_env_list(name: str, default: list[str]) -> list[str]:
+    raw = os.getenv(name, "")
+    if raw.strip():
+        return [item.strip() for item in raw.split(",") if item.strip()]
+    return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+APP_ENV = (os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "development").strip().lower()
+IS_PRODUCTION = APP_ENV in {"prod", "production"}
+ENABLE_API_DOCS = _env_bool("ENABLE_API_DOCS", default=not IS_PRODUCTION)
+IS_VERCEL = os.getenv("VERCEL") == "1"
+VERCEL_URL = os.getenv("VERCEL_URL", "").strip()
+
+default_allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+if IS_VERCEL and "ALLOWED_ORIGINS" not in os.environ:
+    # Demo-friendly default for separate Vercel frontend/backend previews.
+    default_allowed_origins = ["*"]
+ALLOWED_ORIGINS = _split_env_list("ALLOWED_ORIGINS", default_allowed_origins)
+
+DEFAULT_ALLOWED_HOSTS = [] if IS_PRODUCTION else ["localhost", "127.0.0.1", "::1", "testserver"]
+if IS_VERCEL:
+    DEFAULT_ALLOWED_HOSTS = ["*.vercel.app"]
+    if VERCEL_URL:
+        DEFAULT_ALLOWED_HOSTS.append(VERCEL_URL)
+ALLOWED_HOSTS = _split_env_list("ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS)
+if IS_PRODUCTION and not ALLOWED_HOSTS:
+    raise RuntimeError("ALLOWED_HOSTS must be configured when APP_ENV=production")
+
+RATE_LIMIT_ENABLED = _env_bool("RATE_LIMIT_ENABLED", default=True)
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "120"))
+EXPENSIVE_RATE_LIMIT_REQUESTS = int(os.getenv("EXPENSIVE_RATE_LIMIT_REQUESTS", "20"))
+EXPENSIVE_PUBLIC_PATHS = {
+    "/accounts",
+    "/bids/closing-soon",
+    "/bids/stats",
+    "/cities",
+    "/meetings/stats",
+    "/signals/pipeline",
+    "/signals/stats",
+}
+_RATE_LIMIT_STATE: dict[tuple[str, str], deque[float]] = defaultdict(deque)
+_RATE_LIMIT_LOCK = threading.Lock()
+
 app = FastAPI(
     title="Meridian API",
     description="NorthSignal — Canadian municipal procurement intelligence",
     version="0.2.0",
+    docs_url="/docs" if ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
 )
 
-import time
-from functools import wraps
+BID_PUBLIC_COLUMNS = ",".join(
+    [
+        "bid_name",
+        "bid_status",
+        "bid_closing_date",
+        "bid_url",
+        "city",
+        "year",
+        "days_left",
+        "bid_classification",
+        "bid_type",
+        "bid_number",
+        "published_date",
+        "description",
+        "categories",
+        "purchasing_representive",
+        "bids_submitted",
+        "plan_takers",
+    ]
+)
+MEETING_PUBLIC_COLUMNS = ",".join(
+    ["meeting_title", "meeting_date", "document_type", "pdf_url", "city", "year"]
+)
+SIGNAL_PUBLIC_COLUMNS = ",".join(
+    [
+        "source_type",
+        "source_url",
+        "city",
+        "signal_type",
+        "signal_category",
+        "confidence",
+        "score",
+        "summary",
+        "raw_excerpt",
+        "estimated_value",
+        "estimated_timeline",
+        "procurement_stage",
+        "extracted_at",
+        "year",
+    ]
+)
+PDF_PUBLIC_COLUMNS = ",".join(
+    [
+        "source_url",
+        "city",
+        "source_type",
+        "status",
+        "page_count",
+        "signals_extracted",
+        "created_at",
+        "year",
+    ]
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials="*" not in ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    rate_limit = None
+    rate_remaining = None
+
+    if RATE_LIMIT_ENABLED and request.method == "GET":
+        client_ip = request.client.host if request.client else "unknown"
+        path = request.url.path
+        bucket = path if path in EXPENSIVE_PUBLIC_PATHS else "default"
+        rate_limit = EXPENSIVE_RATE_LIMIT_REQUESTS if bucket != "default" else RATE_LIMIT_REQUESTS
+        now = time.time()
+
+        with _RATE_LIMIT_LOCK:
+            history = _RATE_LIMIT_STATE[(client_ip, bucket)]
+            while history and now - history[0] >= RATE_LIMIT_WINDOW_SECONDS:
+                history.popleft()
+            if len(history) >= rate_limit:
+                retry_after = max(1, int(RATE_LIMIT_WINDOW_SECONDS - (now - history[0])))
+                response = JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded"},
+                    headers={"Retry-After": str(retry_after)},
+                )
+                response.headers.setdefault("X-Content-Type-Options", "nosniff")
+                response.headers.setdefault("X-Frame-Options", "DENY")
+                response.headers.setdefault("Referrer-Policy", "same-origin")
+                response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+                response.headers.setdefault("X-RateLimit-Limit", str(rate_limit))
+                response.headers.setdefault("X-RateLimit-Remaining", "0")
+                response.headers.setdefault("X-RateLimit-Window", str(RATE_LIMIT_WINDOW_SECONDS))
+                return response
+            history.append(now)
+            rate_remaining = max(rate_limit - len(history), 0)
+
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if rate_limit is not None and rate_remaining is not None:
+        response.headers.setdefault("X-RateLimit-Limit", str(rate_limit))
+        response.headers.setdefault("X-RateLimit-Remaining", str(rate_remaining))
+        response.headers.setdefault("X-RateLimit-Window", str(RATE_LIMIT_WINDOW_SECONDS))
+    return response
 
 
 # ── Helpers ──
@@ -80,7 +241,7 @@ def list_bids(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
-    query = get_supabase().table("bids").select("*")
+    query = get_supabase().table("bids").select(BID_PUBLIC_COLUMNS)
     if city:
         query = query.eq("city", city)
     if status:
@@ -120,7 +281,7 @@ def get_bid(bid_number: str):
     data = (
         get_supabase()
         .table("bids")
-        .select("*")
+        .select(BID_PUBLIC_COLUMNS)
         .eq("bid_number", bid_number)
         .execute()
         .data
@@ -164,7 +325,7 @@ def list_meetings(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
-    query = get_supabase().table("meetings").select("*")
+    query = get_supabase().table("meetings").select(MEETING_PUBLIC_COLUMNS)
     if city:
         query = query.eq("city", city)
     if document_type:
@@ -187,7 +348,7 @@ def list_signals(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
-    query = get_supabase().table("signals").select("*")
+    query = get_supabase().table("signals").select(SIGNAL_PUBLIC_COLUMNS)
     if city:
         query = query.eq("city", city)
     if category:
@@ -312,7 +473,7 @@ def list_pdf_documents(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
-    query = get_supabase().table("pdf_documents").select("*")
+    query = get_supabase().table("pdf_documents").select(PDF_PUBLIC_COLUMNS)
     if city:
         query = query.eq("city", city)
     if status:
@@ -419,10 +580,10 @@ def list_accounts(year: Optional[int] = Query(None, description="Filter by year"
 def get_account(city: str):
     """Detailed profile for a single city/agency."""
     sb = get_supabase()
-    bids = sb.table("bids").select("*").eq("city", city).order("bid_closing_date", desc=True).limit(50).execute().data
-    signals = sb.table("signals").select("*").eq("city", city).order("score", desc=True).limit(50).execute().data
-    meetings = sb.table("meetings").select("*").eq("city", city).order("meeting_date", desc=True).limit(50).execute().data
-    docs = sb.table("pdf_documents").select("*").eq("city", city).order("created_at", desc=True).limit(50).execute().data
+    bids = sb.table("bids").select(BID_PUBLIC_COLUMNS).eq("city", city).order("bid_closing_date", desc=True).limit(50).execute().data
+    signals = sb.table("signals").select(SIGNAL_PUBLIC_COLUMNS).eq("city", city).order("score", desc=True).limit(50).execute().data
+    meetings = sb.table("meetings").select(MEETING_PUBLIC_COLUMNS).eq("city", city).order("meeting_date", desc=True).limit(50).execute().data
+    docs = sb.table("pdf_documents").select(PDF_PUBLIC_COLUMNS).eq("city", city).order("created_at", desc=True).limit(50).execute().data
 
     # Extract contacts from bids
     contacts = []
@@ -499,7 +660,7 @@ def _parse_bid_date(raw: str) -> "datetime | None":
     if not raw:
         return None
     cleaned = re.sub(r"\(.*?\)", "", raw).strip()
-    cleaned = re.sub(r"^[A-Za-z]{3}\s+", "", cleaned)
+    cleaned = re.sub(r"^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+", "", cleaned, flags=re.IGNORECASE)
     for fmt in (
         "%b %d, %Y %I:%M:%S %p",
         "%b %d, %Y %I:%M %p",
@@ -540,6 +701,7 @@ def _bid_urgency_level(parsed: "datetime", now: "datetime") -> str:
 
 
 @app.get("/bids/closing-soon")
+@ttl_cache(ttl=300)
 def bids_closing_soon(
     days: int = Query(90, ge=1, le=365, description="Bids closing within N days"),
     city: Optional[str] = Query(None),
@@ -553,7 +715,7 @@ def bids_closing_soon(
     now = datetime.utcnow()
     cutoff = now + timedelta(days=days)
 
-    query = get_supabase().table("bids").select("*")
+    query = get_supabase().table("bids").select(BID_PUBLIC_COLUMNS)
     if city:
         query = query.eq("city", city)
     if year:

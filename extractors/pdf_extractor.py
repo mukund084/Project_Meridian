@@ -16,15 +16,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
-import ssl
-import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import httpx
 import pymupdf
-from functools import lru_cache
 
+from network_security import ALLOWED_PDF_HOSTS, PDF_REDIRECT_LIMIT, resolve_redirect_url, validate_pdf_url
 from models.signals import PDFDocument, DocumentExtractionStatus, SourceType
 from db.upsert import upsert_pdf_document, get_pending_pdfs
 
@@ -71,6 +69,25 @@ def _fix_escribemeetings_url(url: str) -> str:
     return url
 
 
+async def _fetch_pdf_response(url: str) -> tuple[str, httpx.Response]:
+    current_url = validate_pdf_url(_fix_escribemeetings_url(url), allowed_hosts=ALLOWED_PDF_HOSTS)
+
+    async with httpx.AsyncClient(follow_redirects=False, timeout=DOWNLOAD_TIMEOUT) as client:
+        for _ in range(PDF_REDIRECT_LIMIT + 1):
+            response = await client.get(current_url)
+            if response.is_redirect:
+                location = response.headers.get("location")
+                if not location:
+                    raise ValueError("PDF redirect response was missing a Location header")
+                current_url = resolve_redirect_url(current_url, location, allowed_hosts=ALLOWED_PDF_HOSTS)
+                continue
+
+            response.raise_for_status()
+            return current_url, response
+
+    raise ValueError(f"PDF download exceeded the redirect limit ({PDF_REDIRECT_LIMIT})")
+
+
 async def download_pdf(url: str, city: str) -> Path:
     """Download a PDF to local storage. Returns the local file path."""
     url = _fix_escribemeetings_url(url)
@@ -86,19 +103,33 @@ async def download_pdf(url: str, city: str) -> Path:
         else:
             dest.unlink()  # Delete fake HTML file
 
-    async with httpx.AsyncClient(follow_redirects=True, timeout=DOWNLOAD_TIMEOUT, verify=False) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
+    final_url, resp = await _fetch_pdf_response(url)
+    declared_length = resp.headers.get("content-length")
+    if declared_length:
+        try:
+            declared_length_int = int(declared_length)
+        except ValueError:
+            declared_length_int = None
+        if declared_length_int and declared_length_int > MAX_PDF_SIZE_MB * 1024 * 1024:
+            raise ValueError(
+                f"PDF too large: {declared_length_int / 1024 / 1024:.1f}MB "
+                f"(max {MAX_PDF_SIZE_MB}MB)"
+            )
 
-        content_length = len(resp.content)
-        if content_length > MAX_PDF_SIZE_MB * 1024 * 1024:
-            raise ValueError(f"PDF too large: {content_length / 1024 / 1024:.1f}MB (max {MAX_PDF_SIZE_MB}MB)")
+    content = resp.content
+    content_length = len(content)
+    if content_length > MAX_PDF_SIZE_MB * 1024 * 1024:
+        raise ValueError(f"PDF too large: {content_length / 1024 / 1024:.1f}MB (max {MAX_PDF_SIZE_MB}MB)")
 
-        # Validate it's actually a PDF
-        if not resp.content[:4] == b"%PDF":
-            raise ValueError(f"Downloaded file is not a PDF (got {content_length} bytes, content-type: {resp.headers.get('content-type', '?')})")
+    # Validate it's actually a PDF
+    if content[:4] != b"%PDF":
+        raise ValueError(
+            "Downloaded file is not a PDF "
+            f"(got {content_length} bytes, content-type: {resp.headers.get('content-type', '?')}, "
+            f"final-url: {final_url})"
+        )
 
-        dest.write_bytes(resp.content)
+    dest.write_bytes(content)
 
     return dest
 

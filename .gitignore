@@ -9,7 +9,8 @@ build/
 .venv/
 
 # Environment variables
-.env
+.env*
+!.env.example
 
 # Crawlee storage (local datasets, request queues, key-value stores)
 storage/
