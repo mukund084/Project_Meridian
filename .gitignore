@@ -22,3 +22,6 @@ storage/
 # OS
 .DS_Store
 Thumbs.db
+
+# Demo artifacts
+DEMO_SCRIPT.md
